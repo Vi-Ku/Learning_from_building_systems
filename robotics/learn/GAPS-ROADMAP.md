@@ -16,7 +16,7 @@ electronics/    (hardware theory)       🟢 7 lessons + exercises
 zephyr/         (firmware + deep-dive)  🟢 17 tutorials + 12 deep-dives
 cpp-advanced/   (C++ depth)             🟢 18 modules + exercises
 control-systems/ (PID → advanced)       🟢 10 lessons + exercises
-navigation-estimator/ (EKF/IMU)         🟢 5 lessons + 5 exercises
+navigation-estimator/ (EKF/IMU)         🟢 6 lessons + 5 exercises
 ros2-handson/   (nodes/TF/Nav2)         🟢 3 lessons + 4 exercises
 python-scripting/ (typing/test/polars)  🟢 3 lessons + 3 exercises
 ```
@@ -32,9 +32,9 @@ lack the mathematical theory to immediately see *why* a covariance grows / explo
 **Goal:** Be able to look at any estimator log and reason from first principles about whether
 the observed covariance trajectory is expected or anomalous.
 
-**Timeline:** 5 weeks · 3–4 hrs/week · no hardware needed
+**Timeline:** 6 weeks · 3–4 hrs/week · no hardware needed
 
-**Status:** � Complete — 5 lessons + 5 exercises written
+**Status:** � Complete — 6 lessons + 5 exercises written
 **Folder:** `learn/navigation-estimator/`
 
 | Week | Topic | Practical Relevance |
@@ -44,6 +44,7 @@ the observed covariance trajectory is expected or anomalous.
 | 3 | EKF measurement update: Mahalanobis, innovation gating | Line-Sensor update in `update()` |
 | 4 | IMU fusion, gyro bias, line-sensor as line-constraint measurement | Theta update + gyro correction |
 | 5 | Diagnosing estimator failures from logs/bags | Apply to real tickets |
+| 6 | Ceres line-sensor solver internals and failure diagnosis | Bell-curve fit failures and estimator-side debugging |
 
 **Files to create:**
 ```
@@ -54,6 +55,7 @@ navigation-estimator/
 ├── 03-measurement-models.md   ← line sensors as constraints, Mahalanobis gating
 ├── 04-imu-fusion.md           ← gyro integration, bias estimation, line-sensor theta
 ├── 05-failure-modes.md        ← covariance blow-up patterns, slip vs collision vs delocalize
+├── 06-ceres-line-sensor-deep-dive.md ← line-fit solver behavior, fit diagnostics, edge cases
 └── exercises/
     ├── 01-odometry-math.md
     ├── 02-kalman-1d.md        ← build a 1D Kalman filter by hand
@@ -94,7 +96,7 @@ ros2-handson/
     ├── 01-pub-sub-timer.md
     ├── 02-tf2-broadcaster.md
     ├── 03-action-server.md
-    └── 04-nav2-custom-plugin.md
+    └── 04-nav2-diagnostics.md
 ```
 
 ---
