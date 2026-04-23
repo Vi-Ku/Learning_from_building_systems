@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exercise09 — Nav2 Plugin Extension Lab - Learning From Building Systems</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .card {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        /* Markdown content styling */
+        .md-content h1 { font-size: 2rem; font-weight: 700; color: #111827; margin-top: 2rem; margin-bottom: 1rem; }
+        .md-content h2 { font-size: 1.5rem; font-weight: 600; color: #1f2937; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; }
+        .md-content h3 { font-size: 1.25rem; font-weight: 600; color: #374151; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+        .md-content h4 { font-size: 1.1rem; font-weight: 600; color: #4b5563; margin-top: 1.25rem; margin-bottom: 0.5rem; }
+        .md-content p { margin-bottom: 1rem; line-height: 1.75; color: #374151; }
+        .md-content ul { list-style: disc; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content ol { list-style: decimal; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content li { margin-bottom: 0.35rem; line-height: 1.6; }
+        .md-content code {
+            background-color: #f3f4f6; padding: 0.15rem 0.4rem; border-radius: 0.25rem;
+            font-size: 0.875rem; font-family: 'Fira Code', 'Courier New', monospace; color: #be185d;
+        }
+        .md-content pre {
+            background-color: #1f2937; color: #e5e7eb; padding: 1rem; border-radius: 0.5rem;
+            overflow-x: auto; margin-bottom: 1.25rem; font-size: 0.85rem; line-height: 1.6;
+        }
+        .md-content pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+        .md-content blockquote {
+            border-left: 4px solid #6366f1; background: #eef2ff; padding: 0.75rem 1rem;
+            margin-bottom: 1rem; border-radius: 0 0.5rem 0.5rem 0; color: #374151;
+        }
+        .md-content table { width: 100%; border-collapse: collapse; margin-bottom: 1.25rem; }
+        .md-content th { background: #f9fafb; padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; text-align: left; font-weight: 600; font-size: 0.875rem; }
+        .md-content td { padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; font-size: 0.875rem; }
+        .md-content tr:hover { background-color: #f9fafb; }
+        .md-content hr { border: 0; border-top: 1px solid #e5e7eb; margin: 1.5rem 0; }
+        .md-content strong { font-weight: 600; }
+        .md-content a { color: #2563eb; text-decoration: underline; }
+        .md-content a:hover { color: #1d4ed8; }
+        .md-content img { max-width: 100%; border-radius: 0.5rem; margin: 1rem 0; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-4xl">
+        <a href="../index.html" class="text-violet-600 hover:text-violet-800 mb-4 inline-block">&larr; Back to Nav2</a>
+
+        <div class="bg-white rounded-xl shadow-md p-6 sm:p-8 md:p-10">
+            <div class="md-content">
+<!-- markdownlint-disable MD033 -->
+
+<h1 id="exercise09-nav2-plugin-extension-lab">Exercise09 — Nav2 Plugin Extension Lab</h1>
+<h2 id="companion-exercises-for-10-nav2-parameters-launch-and-plugin-extension-11-nav2-debugging-observability-and-bag-analysis-and-12-nav2-amr-failure-patterns-and-capstone">Companion exercises for <a href="../10-nav2-parameters-launch-and-plugin-extension.html">10 — Nav2 Parameters Launch And Plugin Extension</a>, <a href="../11-nav2-debugging-observability-and-bag-analysis.html">11 — Nav2 Debugging Observability And Bag Analysis</a>, and <a href="../12-nav2-amr-failure-patterns-and-capstone.html">12 — Nav2 Amr Failure Patterns And Capstone</a></h2>
+<p><strong>Estimated time:</strong> 95 to 120 minutes<br />
+<strong>Prerequisite lessons:</strong> <a href="../08-nav2-recoveries-progress-and-goal-checkers.html">08 — Nav2 Recoveries Progress And Goal Checkers</a>, <a href="../09-nav2-waypoints-docking-zones-and-missions.html">09 — Nav2 Waypoints Docking Zones And Missions</a>, <a href="../10-nav2-parameters-launch-and-plugin-extension.html">10 — Nav2 Parameters Launch And Plugin Extension</a>, <a href="../11-nav2-debugging-observability-and-bag-analysis.html">11 — Nav2 Debugging Observability And Bag Analysis</a>, <a href="../12-nav2-amr-failure-patterns-and-capstone.html">12 — Nav2 Amr Failure Patterns And Capstone</a></p>
+<p><strong>Mode options:</strong></p>
+<ul>
+<li><strong>Simulation:</strong> compare existing Nav2 behaviors and decide whether parameters or mission logic already solve the problem.</li>
+<li><strong>Log and bag review:</strong> analyze repeated incidents and decide whether a plugin extension is justified.</li>
+<li><strong>Architecture review:</strong> complete the exercise as a design decision memo without writing C++ plugin code.</li>
+</ul>
+<p><strong>Validation goal:</strong> by the end of this lab you should be able to decide when Nav2 needs extension, when it only needs configuration, and when the real solution belongs outside Nav2 entirely.</p>
+<hr />
+<h2 id="overview">Overview</h2>
+<p>Many teams reach for custom plugins too early.</p>
+<p>That usually creates one of three problems:</p>
+<ol>
+<li>custom code is written to hide a misunderstood configuration issue</li>
+<li>mission or product logic is improperly forced into a Nav2 plugin</li>
+<li>extension points are chosen without a clear validation plan or rollback path</li>
+</ol>
+<p>This lab is a decision exercise. The goal is not to implement a plugin but to justify whether one should exist at all.</p>
+<hr />
+<h2 id="section-a-configuration-mission-layer-or-plugin">Section A — Configuration, Mission Layer, or Plugin?</h2>
+<p>For each requirement, choose the most likely solution home.</p>
+<table>
+<thead>
+<tr>
+<th>Requirement</th>
+<th>Best first solution home</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>custom slowdown behavior only inside a narrow map-defined zone</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>business rule that skips low-priority waypoints during a rush order</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>controller needs a new scoring term tied to trailer articulation limits</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>docking approach needs special final-pose acceptance logic not covered by existing checkers</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>operator wants a custom dashboard label when localization trust drops</td>
+<td>?</td>
+<td>?</td>
+</tr>
+</tbody>
+</table>
+<details><summary>Answer guidance</summary>
+
+High-quality answers resist unnecessary extension:
+
+- zone-specific slowdown may already be solvable through zone semantics or route policy
+- business-priority logic belongs in the mission layer
+- a new scoring term tightly tied to motion evaluation may justify a controller extension
+- special goal acceptance or docking-specific behavior may justify a custom checker or dedicated behavior if existing options are insufficient
+- dashboard labels are not a plugin problem
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-b-plugin-proposal-critique">Section B — Plugin Proposal Critique</h2>
+<p>Read the proposal below.</p>
+<div class="highlight"><pre><span></span><code>Proposal: create a custom planner plugin because robots sometimes wait too long near the packing zone.
+
+Observed symptoms:
+- robots slow correctly in the packing zone
+- routes remain valid
+- humans often block the lane for 20 to 60 seconds
+- mission deadlines are sometimes missed
+
+Rationale:
+- a custom planner can make smarter business decisions about urgency
+</code></pre></div>
+
+<p><strong>Questions:</strong></p>
+<ol>
+<li>Why is a custom planner plugin probably the wrong first move?</li>
+<li>Which layer actually appears underpowered from this evidence?</li>
+<li>What evidence would you require before considering any Nav2 extension here?</li>
+</ol>
+<details><summary>Answer guidance</summary>
+
+The proposal confuses route validity with business urgency. The planner can already produce a path; the harder problem is policy around waiting, rerouting, or reprioritizing missions. That belongs in mission logic unless there is concrete evidence that route generation itself is deficient.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-c-extension-decision-framework">Section C — Extension Decision Framework</h2>
+<p>Define a five-question checklist that must be answered before approving a Nav2 plugin extension.</p>
+<p>Your checklist must include:</p>
+<ol>
+<li>proof that configuration was exhausted responsibly</li>
+<li>proof that the problem really lives inside Nav2</li>
+<li>measurable success criteria</li>
+<li>rollout and rollback considerations</li>
+<li>observability requirements</li>
+</ol>
+<details><summary>Answer guidance</summary>
+
+Good answers usually force the team to prove the current behavior is insufficient, prove where the insufficiency lives, define a measurable win, and protect operations with rollback and telemetry.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-d-pick-the-correct-extension-point">Section D — Pick the Correct Extension Point</h2>
+<p>Choose the most plausible extension point for each scenario.</p>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Most plausible extension point</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>need a new local trajectory scoring concept</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>need a different criterion for declaring goal reached near a docking target</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>need a new route-level recovery after repeated planner failure in a special area</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>need custom obstacle semantics imported from warehouse operations system</td>
+<td>?</td>
+<td>?</td>
+</tr>
+</tbody>
+</table>
+<p>Possible extension points include controller critics or plugin internals, goal checker, behavior or recovery plugin, costmap layer or semantic input pipeline, or non-Nav2 mission service.</p>
+<details><summary>Answer guidance</summary>
+
+The lesson here is precise ownership. A controller critic changes local motion scoring. A goal checker changes completion semantics. Semantic obstacle rules may belong in a costmap layer or upstream semantic map ingestion. Route-level business policy may belong above Nav2 unless the behavior is genuinely navigation-generic.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-e-validation-plan-before-code">Section E — Validation Plan Before Code</h2>
+<p>You are tentatively approving one custom extension for a docking-related goal checker.</p>
+<h3 id="task-e1-write-the-pre-code-validation-plan">Task E1 — Write the Pre-Code Validation Plan</h3>
+<p>Your plan must include:</p>
+<ol>
+<li>a replay or simulation scenario set</li>
+<li>a baseline using current built-in behavior</li>
+<li>metrics for success and failure</li>
+<li>a rollout safety gate</li>
+</ol>
+<p>Then answer:</p>
+<ol>
+<li>What would convince you that the extension should be rejected even after it is implemented?</li>
+<li>What telemetry would you require in production for the first rollout?</li>
+</ol>
+<details><summary>Answer guidance</summary>
+
+Strong answers use before-and-after comparison, not intuition. The safety gate should include measurable improvement and no regression in normal navigation. Production telemetry should include checker outcomes, near-goal behavior, abort reasons, and one mission context field.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-f-architecture-memo">Section F — Architecture Memo</h2>
+<p>Write a concise architecture memo covering:</p>
+<ol>
+<li>the problem statement</li>
+<li>why configuration or mission logic is insufficient</li>
+<li>the chosen extension point</li>
+<li>how it will be validated and rolled back</li>
+<li>what evidence must appear in review before merge</li>
+</ol>
+<p>Target length: 12 to 16 lines.</p>
+<details><summary>Answer guidance</summary>
+
+The best memos read like engineering approval documents, not feature wishlists. They are explicit about boundaries, metrics, and rollback.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-g-amr-production-reflection">Section G — AMR Production Reflection</h2>
+<p>Answer briefly but concretely.</p>
+<p><strong>G1.</strong> Why is &ldquo;we can just write a plugin&rdquo; a dangerous instinct on a navigation team?</p>
+<p><strong>G2.</strong> Which extension points would you treat as highest operational risk, and why?</p>
+<p><strong>G3.</strong> If you could add one mandatory review question before any Nav2 extension lands, what would it be?</p>
+<details><summary>Answer guidance</summary>
+
+Strong answers emphasize maintainability, hidden ownership drift, and the tendency for custom plugins to become product-policy dumping grounds unless the review bar is disciplined.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="deliverable-template">Deliverable Template</h2>
+<div class="highlight"><pre><span></span><code>Requirement under review:
+
+Current evidence:
+
+Why configuration is or is not enough:
+
+Why mission logic is or is not enough:
+
+Chosen solution home:
+
+If plugin extension:
+- extension point:
+- success metrics:
+- rollout gate:
+- rollback plan:
+- required telemetry:
+
+If not plugin:
+- correct owning layer:
+
+Open risks:
+</code></pre></div>
+
+<hr />
+<h2 id="success-criteria">Success Criteria</h2>
+<p>You have completed this lab well if you can:</p>
+<ol>
+<li>distinguish real Nav2 extension needs from configuration or product-policy problems</li>
+<li>pick a plausible extension point only after proving the problem belongs there</li>
+<li>define measurable validation and rollback criteria before code exists</li>
+<li>frame plugin work as an operationally accountable design choice instead of a convenience shortcut</li>
+</ol>
+            </div>
+        </div>
+
+        <footer class="text-center mt-16 py-6 border-t border-gray-300">
+            <p class="text-gray-500">Robotics Learning Resources</p>
+        </footer>
+    </div>
+</body>
+</html>

@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>02 — Nav2 Bringup, Lifecycle, and Action Contracts - Learning From Building Systems</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .card {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        /* Markdown content styling */
+        .md-content h1 { font-size: 2rem; font-weight: 700; color: #111827; margin-top: 2rem; margin-bottom: 1rem; }
+        .md-content h2 { font-size: 1.5rem; font-weight: 600; color: #1f2937; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; }
+        .md-content h3 { font-size: 1.25rem; font-weight: 600; color: #374151; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+        .md-content h4 { font-size: 1.1rem; font-weight: 600; color: #4b5563; margin-top: 1.25rem; margin-bottom: 0.5rem; }
+        .md-content p { margin-bottom: 1rem; line-height: 1.75; color: #374151; }
+        .md-content ul { list-style: disc; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content ol { list-style: decimal; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content li { margin-bottom: 0.35rem; line-height: 1.6; }
+        .md-content code {
+            background-color: #f3f4f6; padding: 0.15rem 0.4rem; border-radius: 0.25rem;
+            font-size: 0.875rem; font-family: 'Fira Code', 'Courier New', monospace; color: #be185d;
+        }
+        .md-content pre {
+            background-color: #1f2937; color: #e5e7eb; padding: 1rem; border-radius: 0.5rem;
+            overflow-x: auto; margin-bottom: 1.25rem; font-size: 0.85rem; line-height: 1.6;
+        }
+        .md-content pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+        .md-content blockquote {
+            border-left: 4px solid #6366f1; background: #eef2ff; padding: 0.75rem 1rem;
+            margin-bottom: 1rem; border-radius: 0 0.5rem 0.5rem 0; color: #374151;
+        }
+        .md-content table { width: 100%; border-collapse: collapse; margin-bottom: 1.25rem; }
+        .md-content th { background: #f9fafb; padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; text-align: left; font-weight: 600; font-size: 0.875rem; }
+        .md-content td { padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; font-size: 0.875rem; }
+        .md-content tr:hover { background-color: #f9fafb; }
+        .md-content hr { border: 0; border-top: 1px solid #e5e7eb; margin: 1.5rem 0; }
+        .md-content strong { font-weight: 600; }
+        .md-content a { color: #2563eb; text-decoration: underline; }
+        .md-content a:hover { color: #1d4ed8; }
+        .md-content img { max-width: 100%; border-radius: 0.5rem; margin: 1rem 0; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-4xl">
+        <a href="index.html" class="text-violet-600 hover:text-violet-800 mb-4 inline-block">&larr; Back to Nav2</a>
+
+        <div class="bg-white rounded-xl shadow-md p-6 sm:p-8 md:p-10">
+            <div class="md-content">
+<h1 id="02-nav2-bringup-lifecycle-and-action-contracts">02 — Nav2 Bringup, Lifecycle, and Action Contracts</h1>
+<h2 id="why-partial-startup-inactive-servers-and-misunderstood-action-semantics-cause-most-nav2-is-broken-incidents">Why partial startup, inactive servers, and misunderstood action semantics cause most &ldquo;Nav2 is broken&rdquo; incidents</h2>
+<p><strong>Prerequisite:</strong> <a href="01-nav2-system-architecture.html">01 — Nav2 System Architecture</a>, <a href="../01-nodes-topics-actions.html">01 — Nodes Topics Actions</a>
+<strong>Unlocks:</strong> Deterministic bringup, faster startup debugging, correct action usage from mission code, cleaner preemption and cancellation behavior</p>
+<hr />
+<h2 id="why-should-i-care-context">Why Should I Care? (Context)</h2>
+<p>Many teams lose days debugging Nav2 behavior that is really just incomplete bringup.</p>
+<p>Typical examples:</p>
+<ol>
+<li>The planner process exists, but the node never reached <code>ACTIVE</code></li>
+<li>The BT navigator is alive, but its dependencies are not activated in the right order</li>
+<li>The mission layer assumes <code>NavigateToPose</code> is a fire-and-forget request instead of a long-running contract</li>
+<li>A cancelled goal keeps affecting the robot because preemption and cleanup are misunderstood</li>
+</ol>
+<p>Nav2 is built on lifecycle nodes and ROS2 actions. If you do not understand both, every startup or execution problem looks nondeterministic.</p>
+<hr />
+<h2 id="part-1-bringup-is-a-state-machine-not-just-a-launch-file">PART 1 — BRINGUP IS A STATE MACHINE, NOT JUST A LAUNCH FILE</h2>
+<hr />
+<h2 id="11-what-bringup-really-means">1.1 What &ldquo;Bringup&rdquo; Really Means</h2>
+<p>Bringup is not merely starting processes. It means getting all required nodes to the correct lifecycle state with working dependencies.</p>
+<div class="highlight"><pre><span></span><code>process started != node configured != node active != system healthy
+</code></pre></div>
+
+<p>For Nav2, a healthy runtime usually means:</p>
+<ul>
+<li>required nodes exist</li>
+<li>parameters loaded successfully</li>
+<li>costmaps initialized</li>
+<li>TF dependencies available</li>
+<li>lifecycle transitions completed</li>
+<li>bonds established with the lifecycle manager</li>
+</ul>
+<p>Until that chain finishes, startup is incomplete.</p>
+<hr />
+<h2 id="12-the-important-lifecycle-states">1.2 The Important Lifecycle States</h2>
+<p>Nav2 servers are typically <code>LifecycleNode</code>s.</p>
+<div class="highlight"><pre><span></span><code>UNCONFIGURED -&gt; INACTIVE -&gt; ACTIVE
+      ▲            │         │
+      └──── cleanup┘         └── deactivate / shutdown on error or operator request
+</code></pre></div>
+
+<h3 id="unconfigured"><code>UNCONFIGURED</code></h3>
+<p>The node exists but has not allocated or initialized the runtime resources needed for work.</p>
+<h3 id="inactive"><code>INACTIVE</code></h3>
+<p>The node has configured its resources but does not yet process the full runtime workload.</p>
+<h3 id="active"><code>ACTIVE</code></h3>
+<p>The node is ready for normal operation.</p>
+<p><strong>Practical rule:</strong> a node listed in <code>ros2 node list</code> is not evidence that Nav2 is ready.</p>
+<hr />
+<h2 id="13-why-ordered-activation-matters">1.3 Why Ordered Activation Matters</h2>
+<p>The startup chain usually has dependencies like:</p>
+<div class="highlight"><pre><span></span><code>map_server / localization
+    -&gt; costmaps
+    -&gt; planner + controller + behavior server
+    -&gt; bt_navigator
+</code></pre></div>
+
+<p>If a downstream server activates before a required upstream dependency is usable, startup can fail hard or succeed in a misleading half-ready state.</p>
+<p>Examples:</p>
+<ul>
+<li>controller activates before TF is stable and immediately reports transform problems</li>
+<li>planner activates before map data is ready and cannot build a usable planning space</li>
+<li>navigator starts while controller or planner is inactive and later rejects goals</li>
+</ul>
+<p>This is why the lifecycle manager exists.</p>
+<hr />
+<h2 id="part-2-the-lifecycle-manager-is-the-startup-conductor">PART 2 — THE LIFECYCLE MANAGER IS THE STARTUP CONDUCTOR</h2>
+<hr />
+<h2 id="21-what-lifecycle_manager-does">2.1 What <code>lifecycle_manager</code> Does</h2>
+<p><code>lifecycle_manager</code> owns ordered transitions for a configured list of managed nodes.</p>
+<p>Its responsibilities include:</p>
+<ul>
+<li>sending <code>configure</code> requests in order</li>
+<li>sending <code>activate</code> requests in order</li>
+<li>monitoring bond connections to managed nodes</li>
+<li>initiating shutdown or recovery on failure depending on configuration</li>
+</ul>
+<p>Conceptually:</p>
+<div class="highlight"><pre><span></span><code>for node in managed_nodes:
+    configure(node)
+
+for node in managed_nodes:
+    activate(node)
+
+monitor bonds while running
+</code></pre></div>
+
+<hr />
+<h2 id="22-the-two-most-common-startup-failures">2.2 The Two Most Common Startup Failures</h2>
+<h3 id="failure-a-node-fails-during-configure">Failure A: Node fails during <code>configure</code></h3>
+<p>Typical causes:</p>
+<ul>
+<li>missing parameter file keys</li>
+<li>invalid plugin name</li>
+<li>map file unavailable</li>
+<li>transform dependencies missing at startup</li>
+<li>invalid footprint or costmap configuration</li>
+</ul>
+<h3 id="failure-b-node-configures-but-never-becomes-meaningfully-usable">Failure B: Node configures but never becomes meaningfully usable</h3>
+<p>Typical causes:</p>
+<ul>
+<li>inputs are technically present but stale</li>
+<li>localization is live but wrong frame IDs are used</li>
+<li>planner is active but global costmap stays empty or unknown</li>
+<li>controller is active but local costmap never receives observations</li>
+</ul>
+<p>This second case is more dangerous because the state machine can look green while runtime behavior is red.</p>
+<hr />
+<h2 id="23-what-to-inspect-first-during-bringup-debugging">2.3 What to Inspect First During Bringup Debugging</h2>
+<ol>
+<li>Lifecycle state of each managed node</li>
+<li>Parameter load errors during configuration</li>
+<li>TF availability and frame naming</li>
+<li>Map and sensor topics actually arriving with expected QoS</li>
+<li>Bond disconnect or timeout messages from the lifecycle manager</li>
+</ol>
+<p>The wrong debugging habit is jumping directly into BT XML or planner tuning before proving startup health.</p>
+<hr />
+<h2 id="part-3-the-action-contracts-that-matter">PART 3 — THE ACTION CONTRACTS THAT MATTER</h2>
+<hr />
+<h2 id="31-why-actions-matter-in-nav2">3.1 Why Actions Matter in Nav2</h2>
+<p>Navigation is a long-running operation with feedback, cancellation, and final result semantics. That is exactly why Nav2 uses ROS2 actions rather than plain services.</p>
+<p>An action gives you:</p>
+<ul>
+<li>goal acceptance or rejection</li>
+<li>periodic feedback</li>
+<li>cancellation</li>
+<li>final result</li>
+</ul>
+<p>In production AMRs, this matters because navigation requests are frequently preempted by:</p>
+<ul>
+<li>updated tasks</li>
+<li>traffic management decisions</li>
+<li>operator intervention</li>
+<li>safety events</li>
+<li>docking or charging workflows</li>
+</ul>
+<hr />
+<h2 id="32-navigatetopose">3.2 <code>NavigateToPose</code></h2>
+<p>This is the most common top-level contract.</p>
+<p>Conceptually:</p>
+<div class="highlight"><pre><span></span><code>Goal: single target pose
+Feedback: progress toward completion, remaining distance/time depending on setup
+Result: succeeded, canceled, or failed/aborted
+</code></pre></div>
+
+<p>What the caller must get right:</p>
+<ul>
+<li>target frame must be correct, usually <code>map</code></li>
+<li>goal pose must be physically reachable, not just visually near the destination</li>
+<li>caller must handle failure as a real operational event, not a rare exception</li>
+</ul>
+<p><strong>AMR mistake:</strong> sending the geometric center of a workcell instead of the legal staging pose for the robot footprint and approach direction.</p>
+<hr />
+<h2 id="33-navigatethroughposes">3.3 <code>NavigateThroughPoses</code></h2>
+<p>This contract extends single-goal navigation into a sequence of poses.</p>
+<p>Use it when the path semantics matter:</p>
+<ul>
+<li>checkpoint traversal</li>
+<li>lane-constrained movement through specific corridor anchors</li>
+<li>staged navigation near docking or handoff zones</li>
+</ul>
+<p>This is not a generic fleet workflow system. It is still a navigation contract. The caller must decide whether the sequence belongs in navigation or in a higher mission controller.</p>
+<hr />
+<h2 id="34-other-important-action-surfaces">3.4 Other Important Action Surfaces</h2>
+<p>Depending on configuration and integration, you may also see or care about:</p>
+<ul>
+<li><code>ComputePathToPose</code></li>
+<li><code>FollowPath</code></li>
+<li>waypoint following actions</li>
+<li>recovery-related actions such as <code>Spin</code> or <code>BackUp</code></li>
+</ul>
+<p>These are useful both for runtime behavior and for diagnosis:</p>
+<ul>
+<li>if <code>ComputePathToPose</code> fails in isolation, the problem is upstream of path following</li>
+<li>if <code>FollowPath</code> fails on a known-good path, the problem is in local execution, local costmap, or controller policy</li>
+</ul>
+<p>That isolation is valuable during incident triage.</p>
+<hr />
+<h2 id="part-4-goal-acceptance-feedback-preemption-cancellation">PART 4 — GOAL ACCEPTANCE, FEEDBACK, PREEMPTION, CANCELLATION</h2>
+<hr />
+<h2 id="41-goal-acceptance-is-a-gate-not-a-guarantee">4.1 Goal Acceptance Is a Gate, Not a Guarantee</h2>
+<p>When an action server accepts a goal, it means the request passed initial validity checks. It does <strong>not</strong> mean navigation will succeed.</p>
+<p>The actual outcome still depends on:</p>
+<ul>
+<li>planning feasibility</li>
+<li>controller behavior</li>
+<li>local environment dynamics</li>
+<li>lifecycle health during execution</li>
+<li>recovery policy</li>
+</ul>
+<p>Mission software should never interpret &ldquo;goal accepted&rdquo; as &ldquo;job complete soon.&rdquo;</p>
+<hr />
+<h2 id="42-feedback-is-operationally-useful">4.2 Feedback Is Operationally Useful</h2>
+<p>Good action clients use feedback for more than UI niceness.</p>
+<p>Examples:</p>
+<ul>
+<li>detect that progress has stalled before a hard timeout</li>
+<li>inform fleet logic that the robot is in a retry loop</li>
+<li>update operator consoles with remaining distance or recovery state</li>
+<li>correlate navigation feedback with safety or traffic events</li>
+</ul>
+<p>If feedback is ignored, you lose one of the best real-time observability surfaces in Nav2.</p>
+<hr />
+<h2 id="43-preemption-and-cancellation">4.3 Preemption and Cancellation</h2>
+<p>These are different ideas.</p>
+<h3 id="cancellation">Cancellation</h3>
+<p>The caller wants the current goal terminated.</p>
+<p>Expected system behavior:</p>
+<ul>
+<li>cancel in-flight actions</li>
+<li>stop further tree progress for the old goal</li>
+<li>unwind or clean up without leaving stale intent behind</li>
+</ul>
+<h3 id="preemption">Preemption</h3>
+<p>A new goal replaces the old one.</p>
+<p>Expected system behavior:</p>
+<ul>
+<li>old goal no longer drives motion intent</li>
+<li>blackboard goal state updates cleanly</li>
+<li>replanning occurs for the new target</li>
+<li>controller tracks the new path rather than drifting through old commands</li>
+</ul>
+<p><strong>Common bug pattern:</strong> the mission layer sends a new goal but the robot visibly keeps executing the old one for too long. That is usually action/preemption handling, not planner quality.</p>
+<hr />
+<h2 id="part-5-what-a-good-bringup-sequence-looks-like">PART 5 — WHAT A GOOD BRINGUP SEQUENCE LOOKS LIKE</h2>
+<hr />
+<h2 id="51-reference-bringup-timeline">5.1 Reference Bringup Timeline</h2>
+<div class="highlight"><pre><span></span><code>1. Start map server and localization support
+2. Confirm TF tree is coherent enough for navigation
+3. Start Nav2 managed servers
+4. lifecycle_manager configures each node
+5. lifecycle_manager activates each node
+6. Verify costmaps are receiving expected data
+7. Send a known-good navigation goal
+8. Confirm plan, feedback, and /cmd_vel appear as expected
+</code></pre></div>
+
+<p>This is a healthier mental model than &ldquo;run launch file and hope.&rdquo;</p>
+<hr />
+<h2 id="52-production-bringup-advice-for-amrs">5.2 Production Bringup Advice for AMRs</h2>
+<h3 id="separate-infrastructure-readiness-from-task-readiness">Separate infrastructure readiness from task readiness</h3>
+<p>A robot may be booted, networked, and localized enough to report alive, but not ready to accept mission goals.</p>
+<p>Expose a readiness state that depends on Nav2 lifecycle health.</p>
+<h3 id="fail-fast-on-missing-critical-dependencies">Fail fast on missing critical dependencies</h3>
+<p>Do not allow a mission layer to flood goals into a system that is not <code>ACTIVE</code>.</p>
+<h3 id="make-startup-observable">Make startup observable</h3>
+<p>Operators should be able to answer:</p>
+<ul>
+<li>which managed node failed?</li>
+<li>in which lifecycle transition?</li>
+<li>from which parameter or dependency error?</li>
+</ul>
+<p>If startup debugging requires SSH plus guesswork, your bringup is under-instrumented.</p>
+<hr />
+<h2 id="part-6-failure-modes-that-look-random-but-are-not">PART 6 — FAILURE MODES THAT LOOK RANDOM BUT ARE NOT</h2>
+<hr />
+<h2 id="61-the-robot-worked-yesterday">6.1 &ldquo;The Robot Worked Yesterday&rdquo;</h2>
+<p>Often means one of these changed:</p>
+<ul>
+<li>map content</li>
+<li>parameter file</li>
+<li>frame naming</li>
+<li>sensor topic availability</li>
+<li>plugin configuration</li>
+<li>startup order after a launch change</li>
+</ul>
+<p>Lifecycle and action semantics help because they turn these from vague anecdotes into concrete checks.</p>
+<hr />
+<h2 id="62-goal-accepted-then-immediate-abort">6.2 &ldquo;Goal Accepted, Then Immediate Abort&rdquo;</h2>
+<p>Likely areas:</p>
+<ul>
+<li>planner cannot find route</li>
+<li>goal pose invalid or inside obstacle</li>
+<li>dependency became unavailable mid-execution</li>
+<li>BT recovery exhausted very quickly due to local conditions</li>
+</ul>
+<p>Action acceptance alone did not prove the system was ready to complete the task.</p>
+<hr />
+<h2 id="63-server-is-running-but-nothing-happens">6.3 &ldquo;Server Is Running But Nothing Happens&rdquo;</h2>
+<p>Likely areas:</p>
+<ul>
+<li>node inactive despite process presence</li>
+<li>action client waiting on a server name mismatch</li>
+<li>costmap or TF starvation leaving execution stalled</li>
+<li>mission layer never actually sending the goal it claims to send</li>
+</ul>
+<p>This is why lifecycle state and action introspection are first-class operational tools.</p>
+<hr />
+<h2 id="part-7-operator-and-engineer-checklists">PART 7 — OPERATOR AND ENGINEER CHECKLISTS</h2>
+<hr />
+<h2 id="71-bringup-checklist">7.1 Bringup Checklist</h2>
+<ul>
+<li>Are all required Nav2 nodes present?</li>
+<li>Are all managed nodes configured and active?</li>
+<li>Are costmaps receiving map/sensor inputs?</li>
+<li>Is TF coherent for <code>map -&gt; odom -&gt; base_link</code>?</li>
+<li>Can a known safe test goal be accepted and planned?</li>
+</ul>
+<hr />
+<h2 id="72-action-client-checklist">7.2 Action-Client Checklist</h2>
+<ul>
+<li>Are you sending the goal in the correct frame?</li>
+<li>Do you handle rejection, feedback, cancel, and abort distinctly?</li>
+<li>Can your client preempt safely without leaving stale UI or mission state?</li>
+<li>Do you treat repeated aborts as a workflow event instead of endlessly retrying the same invalid request?</li>
+</ul>
+<hr />
+<h2 id="73-what-you-should-be-able-to-explain-after-this-lesson">7.3 What You Should Be Able to Explain After This Lesson</h2>
+<p>You should now be able to explain:</p>
+<ol>
+<li>why Nav2 bringup is a lifecycle problem, not just a launch problem</li>
+<li>what <code>lifecycle_manager</code> actually controls</li>
+<li>why an active process is not proof of a healthy node</li>
+<li>how <code>NavigateToPose</code> and related actions behave operationally</li>
+<li>why cancellation and preemption bugs often masquerade as navigation bugs</li>
+</ol>
+<hr />
+<h2 id="74-next-step">7.4 Next Step</h2>
+<p>Continue to <a href="03-nav2-bt-navigator-and-bt-xml.html">03 — Nav2 Bt Navigator And Bt Xml</a>.</p>
+<p>That lesson explains how <code>bt_navigator</code> turns these action contracts into real navigation policy through BehaviorTree XML.</p>
+            </div>
+        </div>
+
+        <footer class="text-center mt-16 py-6 border-t border-gray-300">
+            <p class="text-gray-500">Robotics Learning Resources</p>
+        </footer>
+    </div>
+</body>
+</html>

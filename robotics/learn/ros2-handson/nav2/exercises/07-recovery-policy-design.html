@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exercise07 — Nav2 Recovery Policy Design - Learning From Building Systems</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .card {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        /* Markdown content styling */
+        .md-content h1 { font-size: 2rem; font-weight: 700; color: #111827; margin-top: 2rem; margin-bottom: 1rem; }
+        .md-content h2 { font-size: 1.5rem; font-weight: 600; color: #1f2937; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; }
+        .md-content h3 { font-size: 1.25rem; font-weight: 600; color: #374151; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+        .md-content h4 { font-size: 1.1rem; font-weight: 600; color: #4b5563; margin-top: 1.25rem; margin-bottom: 0.5rem; }
+        .md-content p { margin-bottom: 1rem; line-height: 1.75; color: #374151; }
+        .md-content ul { list-style: disc; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content ol { list-style: decimal; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content li { margin-bottom: 0.35rem; line-height: 1.6; }
+        .md-content code {
+            background-color: #f3f4f6; padding: 0.15rem 0.4rem; border-radius: 0.25rem;
+            font-size: 0.875rem; font-family: 'Fira Code', 'Courier New', monospace; color: #be185d;
+        }
+        .md-content pre {
+            background-color: #1f2937; color: #e5e7eb; padding: 1rem; border-radius: 0.5rem;
+            overflow-x: auto; margin-bottom: 1.25rem; font-size: 0.85rem; line-height: 1.6;
+        }
+        .md-content pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+        .md-content blockquote {
+            border-left: 4px solid #6366f1; background: #eef2ff; padding: 0.75rem 1rem;
+            margin-bottom: 1rem; border-radius: 0 0.5rem 0.5rem 0; color: #374151;
+        }
+        .md-content table { width: 100%; border-collapse: collapse; margin-bottom: 1.25rem; }
+        .md-content th { background: #f9fafb; padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; text-align: left; font-weight: 600; font-size: 0.875rem; }
+        .md-content td { padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; font-size: 0.875rem; }
+        .md-content tr:hover { background-color: #f9fafb; }
+        .md-content hr { border: 0; border-top: 1px solid #e5e7eb; margin: 1.5rem 0; }
+        .md-content strong { font-weight: 600; }
+        .md-content a { color: #2563eb; text-decoration: underline; }
+        .md-content a:hover { color: #1d4ed8; }
+        .md-content img { max-width: 100%; border-radius: 0.5rem; margin: 1rem 0; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-4xl">
+        <a href="../index.html" class="text-violet-600 hover:text-violet-800 mb-4 inline-block">&larr; Back to Nav2</a>
+
+        <div class="bg-white rounded-xl shadow-md p-6 sm:p-8 md:p-10">
+            <div class="md-content">
+<!-- markdownlint-disable MD033 -->
+
+<h1 id="exercise07-nav2-recovery-policy-design">Exercise07 — Nav2 Recovery Policy Design</h1>
+<h2 id="companion-exercises-for-03-nav2-bt-navigator-and-bt-xml-08-nav2-recoveries-progress-and-goal-checkers-and-12-nav2-amr-failure-patterns-and-capstone">Companion exercises for <a href="../03-nav2-bt-navigator-and-bt-xml.html">03 — Nav2 Bt Navigator And Bt Xml</a>, <a href="../08-nav2-recoveries-progress-and-goal-checkers.html">08 — Nav2 Recoveries Progress And Goal Checkers</a>, and <a href="../12-nav2-amr-failure-patterns-and-capstone.html">12 — Nav2 Amr Failure Patterns And Capstone</a></h2>
+<p><strong>Estimated time:</strong> 100 to 125 minutes<br />
+<strong>Prerequisite lessons:</strong> <a href="../03-nav2-bt-navigator-and-bt-xml.html">03 — Nav2 Bt Navigator And Bt Xml</a>, <a href="../06-nav2-local-control-and-cmdvel.html">06 — Nav2 Local Control And Cmdvel</a>, <a href="../08-nav2-recoveries-progress-and-goal-checkers.html">08 — Nav2 Recoveries Progress And Goal Checkers</a>, <a href="../12-nav2-amr-failure-patterns-and-capstone.html">12 — Nav2 Amr Failure Patterns And Capstone</a></p>
+<p><strong>Mode options:</strong></p>
+<ul>
+<li><strong>Simulation:</strong> trigger blocked-path and transient-obstacle scenarios in a Nav2 world and observe recovery behavior sequencing.</li>
+<li><strong>Bag replay and logs:</strong> infer which recoveries were attempted and whether they matched the underlying failure mode.</li>
+<li><strong>Design review:</strong> complete the exercise as a policy and BehaviorTree review for an AMR team without running hardware.</li>
+</ul>
+<p><strong>Validation goal:</strong> by the end of this lab you should be able to design a recovery policy that is safe, observable, and aligned with actual AMR failure modes instead of simply retrying until operations lose trust.</p>
+<hr />
+<h2 id="overview">Overview</h2>
+<p>Most bad recovery policies fail in one of two ways:</p>
+<ol>
+<li>they retry the same losing action until the mission times out</li>
+<li>they perform aggressive maneuvers that are technically valid but operationally reckless</li>
+</ol>
+<p>For AMRs in warehouses or factories, recoveries are not just a Nav2 concern. They are a product policy. They decide when to retry, when to back up, when to clear costmaps, when to wait for humans, and when to escalate to the mission layer.</p>
+<p>This lab forces you to design recoveries from symptoms, safety constraints, and observability requirements.</p>
+<hr />
+<h2 id="section-a-failure-mode-classification">Section A — Failure Mode Classification</h2>
+<p>Classify each incident by the first recovery category you would consider.</p>
+<table>
+<thead>
+<tr>
+<th>Incident</th>
+<th>First category to consider</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>aisle blocked by a pallet that moved in unexpectedly</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>local costmap appears polluted by a transient ghost obstacle</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>robot cannot rotate cleanly because of tight footprint near staging rack</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>localization confidence suddenly degrades mid-mission</td>
+<td>?</td>
+<td>?</td>
+</tr>
+</tbody>
+</table>
+<p>Choose from categories such as: wait-and-retry, clear local perception state, replan, controlled backup or reposition, localization revalidation, or mission escalation.</p>
+<details><summary>Answer guidance</summary>
+
+The main lesson is that different root causes deserve different first moves:
+
+- a real pallet obstruction may justify a bounded wait, replan, or mission-level reroute
+- ghost obstacles may justify perception-state cleanup only if evidence supports it
+- tight-footprint rotation problems may require controlled repositioning rather than repeated spin attempts
+- degraded localization should usually change trust and mission state, not merely trigger motion retries
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-b-critique-an-over-retry-policy">Section B — Critique an Over-Retry Policy</h2>
+<p>Read the proposed policy below.</p>
+<div class="highlight"><pre><span></span><code>On any FollowPath failure:
+1. clear both costmaps
+2. retry FollowPath immediately
+3. if it fails again, back up 0.10 m
+4. retry FollowPath immediately
+5. repeat this sequence up to 8 times
+6. if still failing, abort mission
+</code></pre></div>
+
+<p><strong>Questions:</strong></p>
+<ol>
+<li>What is operationally weak about this policy?</li>
+<li>Which failure modes might it accidentally make worse?</li>
+<li>What observability is missing if this policy runs in production?</li>
+</ol>
+<details><summary>Answer guidance</summary>
+
+Strong answers should mention that the policy treats all failures as equivalent, lacks branching by cause, and may erase useful evidence. It can worsen blocked-aisle congestion, localization uncertainty, and operator confusion. It also fails to expose whether the issue was perception, control, planning, or localization related.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-c-design-a-tiered-recovery-policy">Section C — Design a Tiered Recovery Policy</h2>
+<p>You are designing for a differential-drive AMR in narrow warehouse aisles.</p>
+<h3 id="task-c1-fill-the-policy-table">Task C1 — Fill the Policy Table</h3>
+<table>
+<thead>
+<tr>
+<th>Failure signature</th>
+<th>First recovery action</th>
+<th>Second action if first fails</th>
+<th>Escalation rule</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>temporary human obstruction with valid localization</td>
+<td>?</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>repeated no-valid-control with smooth odometry but tight local geometry</td>
+<td>?</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>planner failure with obviously blocked aisle</td>
+<td>?</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>pose jump or localization confidence drop</td>
+<td>?</td>
+<td>?</td>
+<td>?</td>
+</tr>
+</tbody>
+</table>
+<details><summary>Answer guidance</summary>
+
+Good designs usually keep the first action low-risk and evidence-aligned:
+
+- temporary human obstruction: short wait then bounded replan or mission pause
+- no-valid-control in tight geometry: small controlled reposition or backing maneuver after checking footprint and local costmap realism
+- planner failure in a truly blocked aisle: wait, reroute, or mission-layer dispatch change rather than endless retries
+- localization trust drop: pause or slow, revalidate localization, then escalate if trust does not recover
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h3 id="task-c2-retry-budget-selection">Task C2 — Retry Budget Selection</h3>
+<p>For each category below, choose a retry philosophy and justify it.</p>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Suggested retry philosophy</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>human crossing or forklift passing nearby</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>local sensor dropout for less than 2 seconds</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>repeated collision-risk backup in a crowded aisle</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>localization reset request</td>
+<td>?</td>
+<td>?</td>
+</tr>
+</tbody>
+</table>
+<p>Possible philosophies:</p>
+<ul>
+<li>many cheap retries are acceptable</li>
+<li>few retries with strong observability</li>
+<li>one retry only, then escalate</li>
+<li>no autonomous retry without higher-level approval</li>
+</ul>
+<details><summary>Answer guidance</summary>
+
+The answer should show operational judgment rather than generic optimism. Cheap retries are acceptable when the environment is clearly transient and safety is preserved. High-motion recoveries in crowded aisles usually deserve a much stricter budget. Localization reset actions often require explicit mission or operator involvement because they change trust in the robot's state.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-d-behaviortree-decision-review">Section D — BehaviorTree Decision Review</h2>
+<p>Assume your BT currently does this:</p>
+<div class="highlight"><pre><span></span><code>NavigateToPose
+  -&gt; ComputePathToPose
+  -&gt; FollowPath
+  -&gt; on failure: ClearEntireCostmap
+  -&gt; Retry NavigateToPose
+</code></pre></div>
+
+<p><strong>Questions:</strong></p>
+<ol>
+<li>What important diagnostic branching is missing from this tree?</li>
+<li>What extra condition or subtree would you add for localization-related failures?</li>
+<li>What extra condition or subtree would you add for blocked-aisle cases?</li>
+</ol>
+<details><summary>Answer guidance</summary>
+
+The missing branch is cause-aware handling. A strong answer suggests separate conditions for localization trust, persistent obstacle presence, or controller-progress failure. The goal is not to write a perfect BT from memory; it is to show that clear-costmap-and-retry is not a universal policy.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-e-recovery-observability-design">Section E — Recovery Observability Design</h2>
+<p>Define the minimum telemetry you would log or surface whenever a recovery is triggered.</p>
+<p>Your answer must include:</p>
+<ol>
+<li>one root-cause hint</li>
+<li>one state snapshot from Nav2</li>
+<li>one mission-layer context field</li>
+<li>one operator-facing label that is not misleading</li>
+</ol>
+<p>Then answer these questions:</p>
+<ol>
+<li>Why is <code>recovery_executed=true</code> useless by itself?</li>
+<li>What would you archive from bag replay or logs after a severe recovery sequence?</li>
+</ol>
+<details><summary>Answer guidance</summary>
+
+Good answers include things like controller failure reason, costmap or TF snapshot, active mission step, and a label such as `blocked_aisle_waiting` or `localization_revalidation_required`. Evidence archives often include the triggering log window, costmap state, TF health, and mission context.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-f-write-a-recovery-policy-memo">Section F — Write a Recovery Policy Memo</h2>
+<p>Write a concise policy memo for operations and software teams that covers:</p>
+<ol>
+<li>when the robot is allowed to recover autonomously</li>
+<li>when it should pause and wait</li>
+<li>when it must escalate to the mission layer or operator</li>
+<li>what evidence should appear in the incident ticket after an abort</li>
+</ol>
+<p>Target length: 10 to 14 lines.</p>
+<details><summary>Answer guidance</summary>
+
+The best memos balance autonomy with trust. They explicitly limit aggressive retries, distinguish transient obstructions from state-trust failures, and require evidence capture instead of "the robot got stuck" summaries.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-g-amr-production-reflection">Section G — AMR Production Reflection</h2>
+<p>Answer briefly but concretely.</p>
+<p><strong>G1.</strong> Why is a recovery policy partly a product decision and not just a BT implementation detail?</p>
+<p><strong>G2.</strong> Which two recovery actions would you treat as highest risk in a crowded warehouse, and why?</p>
+<p><strong>G3.</strong> If you could add only one dashboard view for recoveries, what would it show?</p>
+<details><summary>Answer guidance</summary>
+
+Strong answers mention throughput, safety, operator trust, and the need to understand not just whether a recovery ran but whether it matched the actual failure mode.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="deliverable-template">Deliverable Template</h2>
+<div class="highlight"><pre><span></span><code>AMR scenario:
+
+Primary failure modes considered:
+
+Tiered recovery policy:
+1.
+2.
+3.
+
+Retry budgets:
+- transient obstruction:
+- controller geometry issue:
+- localization trust issue:
+
+Mission escalation rules:
+
+Observability fields:
+- root cause hint:
+- nav state snapshot:
+- mission context:
+- operator label:
+
+Open risks:
+</code></pre></div>
+
+<hr />
+<h2 id="success-criteria">Success Criteria</h2>
+<p>You have completed this lab well if you can:</p>
+<ol>
+<li>match recovery actions to failure signatures instead of applying one generic retry loop</li>
+<li>justify retry budgets using safety and operational reasoning, not only technical optimism</li>
+<li>show where BT branching should reflect localization, geometry, and obstacle differences</li>
+<li>define telemetry that makes recoveries understandable during incident review</li>
+</ol>
+            </div>
+        </div>
+
+        <footer class="text-center mt-16 py-6 border-t border-gray-300">
+            <p class="text-gray-500">Robotics Learning Resources</p>
+        </footer>
+    </div>
+</body>
+</html>

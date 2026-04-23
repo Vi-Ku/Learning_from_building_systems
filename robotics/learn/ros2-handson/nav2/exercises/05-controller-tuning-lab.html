@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exercise05 — Nav2 Controller Tuning Lab - Learning From Building Systems</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .card {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        /* Markdown content styling */
+        .md-content h1 { font-size: 2rem; font-weight: 700; color: #111827; margin-top: 2rem; margin-bottom: 1rem; }
+        .md-content h2 { font-size: 1.5rem; font-weight: 600; color: #1f2937; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; }
+        .md-content h3 { font-size: 1.25rem; font-weight: 600; color: #374151; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+        .md-content h4 { font-size: 1.1rem; font-weight: 600; color: #4b5563; margin-top: 1.25rem; margin-bottom: 0.5rem; }
+        .md-content p { margin-bottom: 1rem; line-height: 1.75; color: #374151; }
+        .md-content ul { list-style: disc; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content ol { list-style: decimal; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content li { margin-bottom: 0.35rem; line-height: 1.6; }
+        .md-content code {
+            background-color: #f3f4f6; padding: 0.15rem 0.4rem; border-radius: 0.25rem;
+            font-size: 0.875rem; font-family: 'Fira Code', 'Courier New', monospace; color: #be185d;
+        }
+        .md-content pre {
+            background-color: #1f2937; color: #e5e7eb; padding: 1rem; border-radius: 0.5rem;
+            overflow-x: auto; margin-bottom: 1.25rem; font-size: 0.85rem; line-height: 1.6;
+        }
+        .md-content pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+        .md-content blockquote {
+            border-left: 4px solid #6366f1; background: #eef2ff; padding: 0.75rem 1rem;
+            margin-bottom: 1rem; border-radius: 0 0.5rem 0.5rem 0; color: #374151;
+        }
+        .md-content table { width: 100%; border-collapse: collapse; margin-bottom: 1.25rem; }
+        .md-content th { background: #f9fafb; padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; text-align: left; font-weight: 600; font-size: 0.875rem; }
+        .md-content td { padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; font-size: 0.875rem; }
+        .md-content tr:hover { background-color: #f9fafb; }
+        .md-content hr { border: 0; border-top: 1px solid #e5e7eb; margin: 1.5rem 0; }
+        .md-content strong { font-weight: 600; }
+        .md-content a { color: #2563eb; text-decoration: underline; }
+        .md-content a:hover { color: #1d4ed8; }
+        .md-content img { max-width: 100%; border-radius: 0.5rem; margin: 1rem 0; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-4xl">
+        <a href="../index.html" class="text-violet-600 hover:text-violet-800 mb-4 inline-block">&larr; Back to Nav2</a>
+
+        <div class="bg-white rounded-xl shadow-md p-6 sm:p-8 md:p-10">
+            <div class="md-content">
+<!-- markdownlint-disable MD033 -->
+
+<h1 id="exercise05-nav2-controller-tuning-lab">Exercise05 — Nav2 Controller Tuning Lab</h1>
+<h2 id="companion-exercises-for-06-nav2-local-control-and-cmdvel-08-nav2-recoveries-progress-and-goal-checkers-and-11-nav2-debugging-observability-and-bag-analysis">Companion exercises for <a href="../06-nav2-local-control-and-cmdvel.html">06 — Nav2 Local Control And Cmdvel</a>, <a href="../08-nav2-recoveries-progress-and-goal-checkers.html">08 — Nav2 Recoveries Progress And Goal Checkers</a>, and <a href="../11-nav2-debugging-observability-and-bag-analysis.html">11 — Nav2 Debugging Observability And Bag Analysis</a></h2>
+<p><strong>Estimated time:</strong> 95 to 120 minutes<br />
+<strong>Prerequisite lessons:</strong> <a href="../05-nav2-global-planning.html">05 — Nav2 Global Planning</a>, <a href="../06-nav2-local-control-and-cmdvel.html">06 — Nav2 Local Control And Cmdvel</a>, <a href="../08-nav2-recoveries-progress-and-goal-checkers.html">08 — Nav2 Recoveries Progress And Goal Checkers</a>, <a href="../11-nav2-debugging-observability-and-bag-analysis.html">11 — Nav2 Debugging Observability And Bag Analysis</a></p>
+<p><strong>Mode options:</strong></p>
+<ul>
+<li><strong>Simulation:</strong> tune DWB or Regulated Pure Pursuit in a path-following scenario with turns, aisle entry, and final approach.</li>
+<li><strong>Bag replay and logs:</strong> inspect command topics, odometry, and local costmap behavior without moving hardware.</li>
+<li><strong>Static analysis:</strong> use the supplied metrics and symptoms to recommend controller and checker changes.</li>
+</ul>
+<p><strong>Validation goal:</strong> by the end of this lab you should be able to tell whether a navigation problem is caused by controller tuning, goal or progress checking, or downstream command handling.</p>
+<hr />
+<h2 id="overview">Overview</h2>
+<p>Controller tuning is where Nav2 teams most often confuse causes:</p>
+<ol>
+<li>a poor global path gets blamed on DWB or RPP</li>
+<li>downstream velocity clipping gets blamed on the controller plugin</li>
+<li>progress checker thresholds get tuned to hide real execution problems</li>
+<li>goal tolerances are loosened to mask oscillation near docking or staging points</li>
+</ol>
+<p>This lab is designed to stop that behavior by forcing you to compare controller intent with actual robot motion.</p>
+<hr />
+<h2 id="section-a-symptom-classification">Section A — Symptom Classification</h2>
+<p>For each symptom, state the most likely layer to inspect first.</p>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>First inspection target</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>robot oscillates 0.3 m from the goal</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>robot publishes smooth controller commands but base motion is jerky</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>robot cuts corners too tightly near shelving</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>progress checker aborts during slow docking alignment</td>
+<td>?</td>
+<td>?</td>
+</tr>
+</tbody>
+</table>
+<details><summary>Answer guidance</summary>
+
+Typical mappings:
+
+- near-goal oscillation: controller tuning plus goal checker tolerance and final approach behavior
+- smooth controller commands but jerky base motion: velocity smoother, safety layer, or base control path
+- corner cutting: controller lookahead or critic balance, but also inspect global path geometry
+- false stuck detection during docking: progress checker thresholds may not match the intended low-speed motion mode
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-b-compare-controller-candidates">Section B — Compare Controller Candidates</h2>
+<p>Assume you tested <code>DWB</code> and <code>RegulatedPurePursuit</code> on the same map and path set.</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th><code>DWB</code></th>
+<th><code>RegulatedPurePursuit</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>average aisle speed</td>
+<td><code>0.52 m/s</code></td>
+<td><code>0.58 m/s</code></td>
+</tr>
+<tr>
+<td>corner overshoot incidents</td>
+<td><code>4 / 20 runs</code></td>
+<td><code>2 / 20 runs</code></td>
+</tr>
+<tr>
+<td>near-goal oscillation incidents</td>
+<td><code>5 / 20 runs</code></td>
+<td><code>3 / 20 runs</code></td>
+</tr>
+<tr>
+<td>docking approach smoothness (subjective)</td>
+<td>medium</td>
+<td>high</td>
+</tr>
+<tr>
+<td>interpretability of tuning knobs for the team</td>
+<td>medium</td>
+<td>high</td>
+</tr>
+</tbody>
+</table>
+<h3 id="task-b1-recommendation-under-constraints">Task B1 — Recommendation Under Constraints</h3>
+<p>The robot is a differential-drive warehouse AMR that spends most of its time following structured paths and occasionally docking precisely.</p>
+<p><strong>Questions:</strong></p>
+<ol>
+<li>Which controller is the better default candidate from this evidence alone?</li>
+<li>What evidence is still missing before rollout?</li>
+<li>Why would a team still keep the other controller available?</li>
+</ol>
+<details><summary>Answer guidance</summary>
+
+Many learners will prefer Regulated Pure Pursuit from these numbers, but the important part is to justify the decision based on motion quality, operator trust, and tuning maintainability. Missing evidence usually includes final command-chain verification, behavior under dynamic obstacles, and tolerance performance near precise staging points.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-c-goal-and-progress-checker-tuning">Section C — Goal and Progress Checker Tuning</h2>
+<p>Read the configuration fragment below.</p>
+<div class="highlight"><pre><span></span><code><span class="nt">controller_server</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">ros__parameters</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">progress_checker_plugin</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">progress_checker</span>
+<span class="w">    </span><span class="nt">goal_checker_plugins</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">general_goal_checker</span><span class="p p-Indicator">]</span>
+
+<span class="w">    </span><span class="nt">progress_checker</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">plugin</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">nav2_controller::SimpleProgressChecker</span>
+<span class="w">      </span><span class="nt">required_movement_radius</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.25</span>
+<span class="w">      </span><span class="nt">movement_time_allowance</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8.0</span>
+
+<span class="w">    </span><span class="nt">general_goal_checker</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">plugin</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">nav2_controller::SimpleGoalChecker</span>
+<span class="w">      </span><span class="nt">xy_goal_tolerance</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.05</span>
+<span class="w">      </span><span class="nt">yaw_goal_tolerance</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.05</span>
+<span class="w">      </span><span class="nt">stateful</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</code></pre></div>
+
+<p><strong>Questions:</strong></p>
+<ol>
+<li>Which values look most likely to create false failure near docking or final alignment?</li>
+<li>Why can tightening tolerances improve apparent precision while hurting overall mission success?</li>
+<li>Suggest one safer initial tuning change for the goal checker and one for the progress checker.</li>
+</ol>
+<details><summary>Answer guidance</summary>
+
+The likely pressure points are the tight `xy_goal_tolerance`, tight `yaw_goal_tolerance`, and potentially aggressive progress threshold relative to slow alignment motion. A strong answer explains that tolerances must match what the robot can repeatedly achieve, not what looks ideal on paper. Good initial changes are modest, measured, and tied to observable outcomes.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-d-command-path-verification">Section D — Command-Path Verification</h2>
+<p>Use the following evidence.</p>
+<div class="highlight"><pre><span></span><code>[controller_server] Selected command: linear.x=0.22 angular.z=0.35
+[velocity_smoother] Output command: linear.x=0.08 angular.z=0.10
+[base_controller] Command below angular deadband, zeroing angular.z
+[odometry] robot yaw changed 0.01 rad over 2.0 s
+</code></pre></div>
+
+<p><strong>Questions:</strong></p>
+<ol>
+<li>Why would tuning DWB critics or RPP lookahead first be a poor move here?</li>
+<li>Which component is currently the strongest suspect?</li>
+<li>What change or experiment would you run before touching controller parameters?</li>
+</ol>
+<details><summary>Answer guidance</summary>
+
+The controller is already selecting a meaningful turn command. That command is being heavily attenuated downstream and then zeroed by the base controller. The local controller may still need tuning eventually, but the fastest next step is to validate and adjust the command chain: smoother limits, deadband settings, and base acceptance thresholds.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-e-design-a-focused-tuning-loop">Section E — Design a Focused Tuning Loop</h2>
+<p>You have time for only three tuning iterations.</p>
+<p><strong>Task:</strong> define a disciplined loop with one change per iteration.</p>
+<p>Each iteration must include:</p>
+<ol>
+<li>one parameter or parameter group to change</li>
+<li>one metric from logs or bags</li>
+<li>one success threshold</li>
+<li>one reason you would revert the change</li>
+</ol>
+<p>Your loop must include at least one check for:</p>
+<ul>
+<li>controller intent versus final base command</li>
+<li>near-goal behavior</li>
+<li>false stuck or progress-check failures</li>
+</ul>
+<details><summary>Answer guidance</summary>
+
+High-quality answers stage the work sensibly:
+
+1. first validate the command chain
+2. then adjust controller behavior for path tracking
+3. only then refine goal or progress checking for final approach behavior
+
+The core lesson is not to tune five knobs at once.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-f-amr-production-reflection">Section F — AMR Production Reflection</h2>
+<p>Answer briefly but concretely.</p>
+<p><strong>F1.</strong> Why is loosening goal tolerances a dangerous way to &ldquo;fix&rdquo; near-goal oscillation for docking workflows?</p>
+<p><strong>F2.</strong> When would you decide that the controller plugin is not the main issue, even if <code>FollowPath</code> keeps failing?</p>
+<p><strong>F3.</strong> What three signals would you add to a dashboard so operators can tell the difference between &ldquo;controller indecision&rdquo; and &ldquo;command chain suppression&rdquo;?</p>
+<details><summary>Answer guidance</summary>
+
+Good answers usually mention downstream process quality: docking pose contracts, velocity smoothing, safety clipping, base deadbands, and odometry response. The dashboard signals should include controller output, final command after smoothing or safety filters, and actual measured motion.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="deliverable-template">Deliverable Template</h2>
+<div class="highlight"><pre><span></span><code>Controller tested:
+
+Environment:
+
+Symptoms:
+
+Evidence captured:
+- controller output:
+- final command output:
+- odometry response:
+- goal/progress checker events:
+
+Tuning iterations:
+1.
+2.
+3.
+
+Best recommendation:
+
+Open risks:
+</code></pre></div>
+
+<hr />
+<h2 id="success-criteria">Success Criteria</h2>
+<p>You have completed this lab well if you can:</p>
+<ol>
+<li>classify motion problems by layer instead of blaming the controller by default</li>
+<li>compare controller plugins using end-to-end motion quality rather than only RViz aesthetics</li>
+<li>tune goal and progress checkers without hiding real system problems</li>
+<li>prove whether a <code>FollowPath</code> failure comes from controller logic or from the downstream command path</li>
+</ol>
+            </div>
+        </div>
+
+        <footer class="text-center mt-16 py-6 border-t border-gray-300">
+            <p class="text-gray-500">Robotics Learning Resources</p>
+        </footer>
+    </div>
+</body>
+</html>

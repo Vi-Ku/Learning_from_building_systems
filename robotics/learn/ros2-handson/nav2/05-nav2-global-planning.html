@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>05 — Nav2 Global Planning - Learning From Building Systems</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .card {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        /* Markdown content styling */
+        .md-content h1 { font-size: 2rem; font-weight: 700; color: #111827; margin-top: 2rem; margin-bottom: 1rem; }
+        .md-content h2 { font-size: 1.5rem; font-weight: 600; color: #1f2937; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; }
+        .md-content h3 { font-size: 1.25rem; font-weight: 600; color: #374151; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+        .md-content h4 { font-size: 1.1rem; font-weight: 600; color: #4b5563; margin-top: 1.25rem; margin-bottom: 0.5rem; }
+        .md-content p { margin-bottom: 1rem; line-height: 1.75; color: #374151; }
+        .md-content ul { list-style: disc; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content ol { list-style: decimal; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content li { margin-bottom: 0.35rem; line-height: 1.6; }
+        .md-content code {
+            background-color: #f3f4f6; padding: 0.15rem 0.4rem; border-radius: 0.25rem;
+            font-size: 0.875rem; font-family: 'Fira Code', 'Courier New', monospace; color: #be185d;
+        }
+        .md-content pre {
+            background-color: #1f2937; color: #e5e7eb; padding: 1rem; border-radius: 0.5rem;
+            overflow-x: auto; margin-bottom: 1.25rem; font-size: 0.85rem; line-height: 1.6;
+        }
+        .md-content pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+        .md-content blockquote {
+            border-left: 4px solid #6366f1; background: #eef2ff; padding: 0.75rem 1rem;
+            margin-bottom: 1rem; border-radius: 0 0.5rem 0.5rem 0; color: #374151;
+        }
+        .md-content table { width: 100%; border-collapse: collapse; margin-bottom: 1.25rem; }
+        .md-content th { background: #f9fafb; padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; text-align: left; font-weight: 600; font-size: 0.875rem; }
+        .md-content td { padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; font-size: 0.875rem; }
+        .md-content tr:hover { background-color: #f9fafb; }
+        .md-content hr { border: 0; border-top: 1px solid #e5e7eb; margin: 1.5rem 0; }
+        .md-content strong { font-weight: 600; }
+        .md-content a { color: #2563eb; text-decoration: underline; }
+        .md-content a:hover { color: #1d4ed8; }
+        .md-content img { max-width: 100%; border-radius: 0.5rem; margin: 1rem 0; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-4xl">
+        <a href="index.html" class="text-violet-600 hover:text-violet-800 mb-4 inline-block">&larr; Back to Nav2</a>
+
+        <div class="bg-white rounded-xl shadow-md p-6 sm:p-8 md:p-10">
+            <div class="md-content">
+<h1 id="05-nav2-global-planning">05 — Nav2 Global Planning</h1>
+<h2 id="choosing-interpreting-and-debugging-global-planners-for-warehouse-and-factory-amrs">Choosing, interpreting, and debugging global planners for warehouse and factory AMRs</h2>
+<p><strong>Prerequisite:</strong> <a href="04-nav2-costmaps-and-layers.html">04 — Nav2 Costmaps And Layers</a>, <a href="01-nav2-system-architecture.html">01 — Nav2 System Architecture</a>
+<strong>Unlocks:</strong> Better planner selection, cleaner root-cause separation, stronger tuning decisions, more credible AMR architecture reviews</p>
+<hr />
+<h2 id="why-should-i-care-context">Why Should I Care? (Context)</h2>
+<p>Global planning is where the robot turns &ldquo;I need to get there&rdquo; into an actual route through the mapped world.</p>
+<p>When this layer goes wrong, teams often make one of three mistakes:</p>
+<ol>
+<li>they swap planner plugins before proving the costmap is trustworthy</li>
+<li>they blame the planner for controller-tracking problems</li>
+<li>they choose a planner based on popularity rather than vehicle and environment constraints</li>
+</ol>
+<p>For production AMRs, planner choice is not academic. It affects:</p>
+<ul>
+<li>throughput</li>
+<li>path smoothness</li>
+<li>compute budget</li>
+<li>behavior in narrow aisles</li>
+<li>recovery frequency</li>
+<li>how well the route respects the robot&rsquo;s real kinematics</li>
+</ul>
+<hr />
+<h2 id="part-1-what-the-global-planner-is-responsible-for">PART 1 — WHAT THE GLOBAL PLANNER IS RESPONSIBLE FOR</h2>
+<hr />
+<h2 id="11-the-planners-job">1.1 The Planner&rsquo;s Job</h2>
+<p>The global planner computes a route from current pose to goal pose over the <strong>global costmap</strong>.</p>
+<p>It answers:</p>
+<div class="highlight"><pre><span></span><code>Given this map, this start pose, this goal pose, and this configuration,
+what path should the robot try to follow?
+</code></pre></div>
+
+<p>It does <strong>not</strong> answer:</p>
+<ul>
+<li>can the controller track this perfectly right now?</li>
+<li>is there a moving forklift about to enter the aisle?</li>
+<li>should the mission layer have sent this goal in the first place?</li>
+</ul>
+<p>Those belong elsewhere.</p>
+<hr />
+<h2 id="12-a-valid-plan-is-not-the-same-as-a-good-plan">1.2 A Valid Plan Is Not the Same as a Good Plan</h2>
+<p>Two planners may both return valid paths, but one may be operationally better because it is:</p>
+<ul>
+<li>easier for the controller to track</li>
+<li>safer near obstacles</li>
+<li>more kinematically realistic</li>
+<li>less likely to trigger recoveries in tight spaces</li>
+</ul>
+<p>This distinction matters in AMRs because a formally legal path can still be throughput-poor or fragile.</p>
+<hr />
+<h2 id="part-2-common-nav2-global-planner-options">PART 2 — COMMON NAV2 GLOBAL PLANNER OPTIONS</h2>
+<hr />
+<h2 id="21-navfn">2.1 <code>NavFn</code></h2>
+<p><code>NavFn</code> is the classic grid-based planner familiar from earlier ROS navigation stacks.</p>
+<p>Strengths:</p>
+<ul>
+<li>simple mental model</li>
+<li>established behavior</li>
+<li>often good enough for basic differential-drive navigation in structured maps</li>
+</ul>
+<p>Limitations:</p>
+<ul>
+<li>less expressive for kinematically constrained vehicles</li>
+<li>may produce paths that are legal on the grid but not ideal for smooth execution</li>
+</ul>
+<p>Use it when the environment is structured, the robot is simple, and you want predictable baseline behavior before moving to more advanced planners.</p>
+<hr />
+<h2 id="22-smac-2d">2.2 <code>Smac 2D</code></h2>
+<p><code>Smac 2D</code> is a more modern grid-based search option.</p>
+<p>Typical advantages:</p>
+<ul>
+<li>strong performance for many structured map cases</li>
+<li>often better behavior and tuning flexibility than a naive legacy baseline</li>
+<li>good option for differential-drive or omni robots where full nonholonomic search is unnecessary</li>
+</ul>
+<p>Typical consideration:</p>
+<ul>
+<li>still relies heavily on costmap quality and discretized world representation</li>
+</ul>
+<p>For many warehouse AMRs, this is a strong default candidate when you want better global planning behavior without committing to a more complex kinematic model.</p>
+<hr />
+<h2 id="23-smac-hybrid-a">2.3 <code>Smac Hybrid-A*</code></h2>
+<p>This planner incorporates vehicle orientation and motion constraints more explicitly.</p>
+<p>Why teams choose it:</p>
+<ul>
+<li>better alignment with nonholonomic behavior</li>
+<li>more realistic paths for robots that cannot simply translate arbitrarily through tight geometry</li>
+</ul>
+<p>Tradeoffs:</p>
+<ul>
+<li>more computational complexity</li>
+<li>parameter sensitivity can be higher</li>
+<li>you should only choose it if the vehicle and operating geometry benefit from that extra realism</li>
+</ul>
+<p>This is often compelling for robots where heading and turning constraints matter materially at route-generation time.</p>
+<hr />
+<h2 id="24-smac-lattice-or-other-kinodynamic-aware-options">2.4 Smac Lattice or Other Kinodynamic-Aware Options</h2>
+<p>If the platform and environment require stronger motion primitive reasoning, lattice-based or similar approaches can make sense.</p>
+<p>This is most relevant when:</p>
+<ul>
+<li>the AMR has tighter nonholonomic limits</li>
+<li>the robot frequently navigates constrained approach geometries</li>
+<li>the global plan itself must already respect maneuver style, not just endpoint feasibility</li>
+</ul>
+<p>These planners are more powerful, but the burden of good modeling and tuning is higher.</p>
+<hr />
+<h2 id="part-3-planner-selection-for-amrs">PART 3 — PLANNER SELECTION FOR AMRS</h2>
+<hr />
+<h2 id="31-differential-drive-warehouse-amr">3.1 Differential-Drive Warehouse AMR</h2>
+<p>Common priorities:</p>
+<ul>
+<li>narrow aisle passability</li>
+<li>predictable compute cost</li>
+<li>paths that controllers can follow smoothly</li>
+<li>enough conservatism near shelving and pallet corners</li>
+</ul>
+<p>Reasonable choices often start with:</p>
+<ul>
+<li><code>Smac 2D</code> for a modern grid-based default</li>
+<li><code>NavFn</code> for simpler baseline validation</li>
+<li><code>Smac Hybrid-A*</code> when heading and maneuver realism materially improve field behavior</li>
+</ul>
+<p>The right answer depends on whether route realism or computational simplicity is more limiting in your system.</p>
+<hr />
+<h2 id="32-factory-floor-with-more-open-space">3.2 Factory Floor with More Open Space</h2>
+<p>If the environment has broader corridors and fewer tight geometry constraints, simpler planners can often perform very well.</p>
+<p>Here the bigger value may come from:</p>
+<ul>
+<li>stable costmaps</li>
+<li>correct semantic zones</li>
+<li>controller tuning</li>
+</ul>
+<p>rather than from complex planner machinery.</p>
+<hr />
+<h2 id="33-planner-selection-matrix">3.3 Planner Selection Matrix</h2>
+<table>
+<thead>
+<tr>
+<th>Environment / robot characteristic</th>
+<th>Planner bias</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>simple differential-drive, structured map, modest compute</td>
+<td><code>NavFn</code> or <code>Smac 2D</code></td>
+</tr>
+<tr>
+<td>narrow aisles, strong need for robust modern grid planning</td>
+<td><code>Smac 2D</code></td>
+</tr>
+<tr>
+<td>heading-constrained maneuvers matter at route level</td>
+<td><code>Smac Hybrid-A*</code></td>
+</tr>
+<tr>
+<td>motion primitives must closely reflect vehicle behavior</td>
+<td>lattice-style approach</td>
+</tr>
+</tbody>
+</table>
+<p>This is only a starting point. Costmap quality and controller behavior still determine whether the planner&rsquo;s advantages show up in production.</p>
+<hr />
+<h2 id="part-4-what-the-planner-is-actually-optimizing">PART 4 — WHAT THE PLANNER IS ACTUALLY OPTIMIZING</h2>
+<hr />
+<h2 id="41-the-planner-is-cost-map-aware-not-human-common-sense-aware">4.1 The Planner Is Cost-Map-Aware, Not Human-Common-Sense-Aware</h2>
+<p>The planner does not know what a pallet, forklift, or shipping lane means. It only knows:</p>
+<ul>
+<li>cell costs</li>
+<li>obstacle constraints</li>
+<li>search strategy</li>
+<li>configured penalties and heuristics</li>
+</ul>
+<p>That means a path that looks strange to a human may still be the optimal solution under the current cost representation.</p>
+<p>If the route is weird, ask whether the planner is wrong or whether the world model made that route rational.</p>
+<hr />
+<h2 id="42-path-quality-metrics-that-matter">4.2 Path Quality Metrics That Matter</h2>
+<p>When comparing planners, look beyond &ldquo;did it return a path?&rdquo;</p>
+<p>Useful metrics:</p>
+<ul>
+<li>route length</li>
+<li>clearance from obstacles</li>
+<li>heading continuity</li>
+<li>number of sharp turns</li>
+<li>controller trackability</li>
+<li>compute latency under repeated replanning</li>
+<li>stability when costmap changes slightly</li>
+</ul>
+<p>The best planner for an AMR is often the one that reduces downstream controller drama, not merely the one with the prettiest path in RViz.</p>
+<hr />
+<h2 id="43-unknown-space-and-goal-tolerance-effects">4.3 Unknown Space and Goal Tolerance Effects</h2>
+<p>Planner behavior changes materially when:</p>
+<ul>
+<li>unknown cells are treated differently</li>
+<li>goal lies near inflated or unknown space</li>
+<li>the start pose is slightly misregistered</li>
+</ul>
+<p>This is why planner failures often disappear when you fix costmap policy or localization, even though no planner parameter changed.</p>
+<hr />
+<h2 id="part-5-when-a-planner-failure-is-not-really-a-planner-failure">PART 5 — WHEN A PLANNER FAILURE IS NOT REALLY A PLANNER FAILURE</h2>
+<hr />
+<h2 id="51-no-path-found">5.1 &ldquo;No Path Found&rdquo;</h2>
+<p>Possible true causes:</p>
+<ul>
+<li>goal inside obstacle or inflated obstacle</li>
+<li>stale or phantom obstacles in the global costmap</li>
+<li>inflation and footprint closing narrow corridors</li>
+<li>localization placing start pose incorrectly</li>
+<li>unknown-space policy rejecting the route</li>
+</ul>
+<p>The planner is only the component that reports the impossibility. It may not be the source of it.</p>
+<hr />
+<h2 id="52-path-looks-fine-controller-still-fails">5.2 Path Looks Fine, Controller Still Fails</h2>
+<p>Likely causes:</p>
+<ul>
+<li>path too close to obstacles for local execution margin</li>
+<li>path curvature or heading transitions are poor for the controller/vehicle pair</li>
+<li>local costmap conditions changed after planning</li>
+<li>base motion limits make the path unrealistic in practice</li>
+</ul>
+<p>This is where planner/controller coupling matters. A planner is only useful if the resulting path is operationally followable.</p>
+<hr />
+<h2 id="53-replanning-forever">5.3 Replanning Forever</h2>
+<p>If the tree keeps replanning but no progress is made, possibilities include:</p>
+<ul>
+<li>dynamic blockage in the environment</li>
+<li>costmap flicker near a constrained route</li>
+<li>planner returns minor route variations that do not change execution outcome</li>
+<li>controller cannot realize any of the available plans</li>
+</ul>
+<p>This is a full-stack diagnosis problem, not just a planner-tuning problem.</p>
+<hr />
+<h2 id="part-6-warehouse-specific-tradeoffs">PART 6 — WAREHOUSE-SPECIFIC TRADEOFFS</h2>
+<hr />
+<h2 id="61-throughput-vs-conservatism">6.1 Throughput vs Conservatism</h2>
+<p>In a dense warehouse, conservative paths with large clearance may be safer but reduce throughput by widening turns and lengthening routes.</p>
+<p>Aggressive planners may shorten travel time but increase:</p>
+<ul>
+<li>controller difficulty</li>
+<li>near-obstacle sensitivity</li>
+<li>recovery frequency</li>
+</ul>
+<p>Planner selection should reflect product goals, not just lab benchmarks.</p>
+<hr />
+<h2 id="62-narrow-aisle-behavior">6.2 Narrow Aisle Behavior</h2>
+<p>What matters most here:</p>
+<ul>
+<li>whether the planner believes the aisle is passable at all</li>
+<li>whether returned paths keep enough margin for local tracking</li>
+<li>whether repeated replanning stays stable when humans or forklifts temporarily intrude near aisle edges</li>
+</ul>
+<p>Many narrow-aisle failures are resolved by fixing footprint/inflation policy before changing planner algorithms.</p>
+<hr />
+<h2 id="63-goal-poses-near-workcells-and-docks">6.3 Goal Poses Near Workcells and Docks</h2>
+<p>A planner can only work with the goal it is given.</p>
+<p>If the mission layer sends a final pose that is geometrically legal but operationally wrong, you get brittle behavior:</p>
+<ul>
+<li>awkward final orientation</li>
+<li>controller oscillation near the endpoint</li>
+<li>repeated recoveries despite a valid global route</li>
+</ul>
+<p>This is why staging poses, docking entry poses, and final approach contracts matter.</p>
+<hr />
+<h2 id="part-7-how-to-evaluate-a-planner-change">PART 7 — HOW TO EVALUATE A PLANNER CHANGE</h2>
+<hr />
+<h2 id="71-test-questions">7.1 Test Questions</h2>
+<p>When changing planners or planner parameters, ask:</p>
+<ul>
+<li>Did path success rate improve on representative maps?</li>
+<li>Did controller tracking improve or worsen?</li>
+<li>Did compute latency remain acceptable under replanning load?</li>
+<li>Did narrow-aisle behavior improve without hiding a costmap defect?</li>
+<li>Did recovery frequency drop in real scenarios, not just synthetic demos?</li>
+</ul>
+<hr />
+<h2 id="72-review-checklist">7.2 Review Checklist</h2>
+<ul>
+<li>Is the planner choice matched to vehicle kinematics and aisle geometry?</li>
+<li>Have costmap and footprint issues been ruled out first?</li>
+<li>Are you optimizing for actual AMR outcomes rather than algorithm novelty?</li>
+<li>Can the controller reliably execute the class of paths this planner returns?</li>
+<li>Does the chosen planner remain stable under the environment&rsquo;s expected dynamic disturbance?</li>
+</ul>
+<hr />
+<h2 id="73-what-you-should-be-able-to-explain-after-this-lesson">7.3 What You Should Be Able to Explain After This Lesson</h2>
+<p>You should now be able to explain:</p>
+<ol>
+<li>what the global planner is and is not responsible for</li>
+<li>the practical differences between common Nav2 planner choices</li>
+<li>how to choose a planner for a production AMR rather than a toy demo</li>
+<li>why many planner failures are rooted upstream in costmaps or localization</li>
+<li>how to evaluate planner quality using operational metrics instead of just path existence</li>
+</ol>
+<hr />
+<h2 id="74-next-step">7.4 Next Step</h2>
+<p>The next planned lesson in this track is <a href="06-nav2-local-control-and-cmdvel.html">06 — Nav2 Local Control And Cmdvel</a>, which will connect planner output to actual motion quality, controller tuning, and <code>/cmd_vel</code> behavior.</p>
+            </div>
+        </div>
+
+        <footer class="text-center mt-16 py-6 border-t border-gray-300">
+            <p class="text-gray-500">Robotics Learning Resources</p>
+        </footer>
+    </div>
+</body>
+</html>

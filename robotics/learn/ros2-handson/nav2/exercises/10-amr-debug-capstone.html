@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exercise10 — AMR Debug Capstone - Learning From Building Systems</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .card {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        /* Markdown content styling */
+        .md-content h1 { font-size: 2rem; font-weight: 700; color: #111827; margin-top: 2rem; margin-bottom: 1rem; }
+        .md-content h2 { font-size: 1.5rem; font-weight: 600; color: #1f2937; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; }
+        .md-content h3 { font-size: 1.25rem; font-weight: 600; color: #374151; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+        .md-content h4 { font-size: 1.1rem; font-weight: 600; color: #4b5563; margin-top: 1.25rem; margin-bottom: 0.5rem; }
+        .md-content p { margin-bottom: 1rem; line-height: 1.75; color: #374151; }
+        .md-content ul { list-style: disc; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content ol { list-style: decimal; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content li { margin-bottom: 0.35rem; line-height: 1.6; }
+        .md-content code {
+            background-color: #f3f4f6; padding: 0.15rem 0.4rem; border-radius: 0.25rem;
+            font-size: 0.875rem; font-family: 'Fira Code', 'Courier New', monospace; color: #be185d;
+        }
+        .md-content pre {
+            background-color: #1f2937; color: #e5e7eb; padding: 1rem; border-radius: 0.5rem;
+            overflow-x: auto; margin-bottom: 1.25rem; font-size: 0.85rem; line-height: 1.6;
+        }
+        .md-content pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+        .md-content blockquote {
+            border-left: 4px solid #6366f1; background: #eef2ff; padding: 0.75rem 1rem;
+            margin-bottom: 1rem; border-radius: 0 0.5rem 0.5rem 0; color: #374151;
+        }
+        .md-content table { width: 100%; border-collapse: collapse; margin-bottom: 1.25rem; }
+        .md-content th { background: #f9fafb; padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; text-align: left; font-weight: 600; font-size: 0.875rem; }
+        .md-content td { padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; font-size: 0.875rem; }
+        .md-content tr:hover { background-color: #f9fafb; }
+        .md-content hr { border: 0; border-top: 1px solid #e5e7eb; margin: 1.5rem 0; }
+        .md-content strong { font-weight: 600; }
+        .md-content a { color: #2563eb; text-decoration: underline; }
+        .md-content a:hover { color: #1d4ed8; }
+        .md-content img { max-width: 100%; border-radius: 0.5rem; margin: 1rem 0; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-4xl">
+        <a href="../index.html" class="text-violet-600 hover:text-violet-800 mb-4 inline-block">&larr; Back to Nav2</a>
+
+        <div class="bg-white rounded-xl shadow-md p-6 sm:p-8 md:p-10">
+            <div class="md-content">
+<!-- markdownlint-disable MD033 -->
+
+<h1 id="exercise10-amr-debug-capstone">Exercise10 — AMR Debug Capstone</h1>
+<h2 id="companion-exercises-for-07-nav2-localization-odom-amcl-ekf-08-nav2-recoveries-progress-and-goal-checkers-09-nav2-waypoints-docking-zones-and-missions-10-nav2-parameters-launch-and-plugin-extension-11-nav2-debugging-observability-and-bag-analysis-and-12-nav2-amr-failure-patterns-and-capstone">Companion exercises for <a href="../07-nav2-localization-odom-amcl-ekf.html">07 — Nav2 Localization Odom Amcl Ekf</a>, <a href="../08-nav2-recoveries-progress-and-goal-checkers.html">08 — Nav2 Recoveries Progress And Goal Checkers</a>, <a href="../09-nav2-waypoints-docking-zones-and-missions.html">09 — Nav2 Waypoints Docking Zones And Missions</a>, <a href="../10-nav2-parameters-launch-and-plugin-extension.html">10 — Nav2 Parameters Launch And Plugin Extension</a>, <a href="../11-nav2-debugging-observability-and-bag-analysis.html">11 — Nav2 Debugging Observability And Bag Analysis</a>, and <a href="../12-nav2-amr-failure-patterns-and-capstone.html">12 — Nav2 Amr Failure Patterns And Capstone</a></h2>
+<p><strong>Estimated time:</strong> 120 to 150 minutes<br />
+<strong>Prerequisite lessons:</strong> <a href="../07-nav2-localization-odom-amcl-ekf.html">07 — Nav2 Localization Odom Amcl Ekf</a>, <a href="../08-nav2-recoveries-progress-and-goal-checkers.html">08 — Nav2 Recoveries Progress And Goal Checkers</a>, <a href="../09-nav2-waypoints-docking-zones-and-missions.html">09 — Nav2 Waypoints Docking Zones And Missions</a>, <a href="../10-nav2-parameters-launch-and-plugin-extension.html">10 — Nav2 Parameters Launch And Plugin Extension</a>, <a href="../11-nav2-debugging-observability-and-bag-analysis.html">11 — Nav2 Debugging Observability And Bag Analysis</a>, <a href="../12-nav2-amr-failure-patterns-and-capstone.html">12 — Nav2 Amr Failure Patterns And Capstone</a></p>
+<p><strong>Mode options:</strong></p>
+<ul>
+<li><strong>Simulation:</strong> reproduce parts of the incident in a Nav2-enabled warehouse world and compare observed symptoms to the evidence packet.</li>
+<li><strong>Bag replay and logs:</strong> treat the supplied evidence as the primary source of truth and produce a structured root-cause analysis.</li>
+<li><strong>Design review:</strong> complete the capstone as a production incident exercise with no hardware dependency.</li>
+</ul>
+<p><strong>Validation goal:</strong> by the end of this capstone you should be able to separate localization, costmap, controller, recovery-policy, zone-policy, and mission-layer mistakes in one coherent incident review instead of blaming &ldquo;navigation&rdquo; as a single black box.</p>
+<hr />
+<h2 id="scenario">Scenario</h2>
+<p>You are the on-call engineer for a warehouse AMR fleet.</p>
+<p>At 09:14, robot <code>amr-07</code> was executing this mission:</p>
+<ol>
+<li>leave outbound staging</li>
+<li>travel through packing zone corridor</li>
+<li>stop at pick station <code>P-12</code></li>
+<li>continue to charger after pick confirmation</li>
+</ol>
+<p>Operations report:</p>
+<ul>
+<li>the robot slowed appropriately near the packing zone</li>
+<li>then hesitated, backed up once, turned sharply, and aborted</li>
+<li>the dashboard labeled the incident <code>navigation_failed</code></li>
+<li>the mission system immediately reassigned the order to another robot</li>
+</ul>
+<p>Your job is to produce a defensible diagnosis from incomplete evidence.</p>
+<hr />
+<h2 id="evidence-packet">Evidence Packet</h2>
+<div class="highlight"><pre><span></span><code>[mission_manager] Dispatch mission pick_P12_then_charge to amr-07
+[zone_manager] Entered speed zone packing_corridor, max_speed=0.25
+[bt_navigator] Begin NavigateToPose to P-12 approach waypoint
+[controller_server] Selected command: linear.x=0.18 angular.z=0.22
+[velocity_smoother] Output command: linear.x=0.10 angular.z=0.08
+[local_costmap.local_costmap] Message Filter dropping message: frame &#39;laser&#39; at time 551.420 for reason &#39;the timestamp on the message is earlier than all the data in the transform cache&#39;
+[controller_server] No valid control command found
+[behavior_server] Executing backup behavior
+[amcl] Pose covariance increased to x=0.36 y=0.40 yaw=0.31
+[bt_navigator] Recovery node returned SUCCESS
+[planner_server] ComputePathToPose failed: no valid path found
+[mission_manager] Navigation result=FAILED for waypoint P-12 approach
+[mission_manager] Auto-diverting robot to charge mission
+</code></pre></div>
+
+<p>Supplemental notes:</p>
+<ul>
+<li>RViz screenshot from the incident shows the robot slightly rotated relative to the mapped corridor.</li>
+<li>A replay clip suggests intermittent human traffic was present in the packing corridor.</li>
+<li>The forklift keepout zone was not violated.</li>
+<li>The battery was at <code>38%</code>, well above the normal charge-divert threshold.</li>
+</ul>
+<hr />
+<h2 id="section-a-first-pass-triage">Section A — First-Pass Triage</h2>
+<p>Answer in order, without skipping ahead to fixes.</p>
+<ol>
+<li>What are the first three competing hypotheses you would consider?</li>
+<li>Which single log line most strongly changes your investigation priority?</li>
+<li>Why is <code>navigation_failed</code> an insufficient incident label here?</li>
+</ol>
+<details><summary>Answer guidance</summary>
+
+Reasonable first hypotheses include:
+
+- localization or TF timing degradation causing observation drops and controller invalidation
+- a genuine transient corridor obstruction interacting with the recovery policy
+- mission-layer misclassification or mis-escalation after a bounded Nav2 failure
+
+The dropped-message line and covariance increase should strongly influence prioritization because they suggest state trust issues, not just route inconvenience.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-b-evidence-classification-table">Section B — Evidence Classification Table</h2>
+<p>Classify each evidence item.</p>
+<table>
+<thead>
+<tr>
+<th>Evidence item</th>
+<th>Best category</th>
+<th>Why it matters</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>speed zone entry</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>smoothed command lower than controller intent</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>local costmap dropped laser message</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>backup behavior success</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>planner later reports no valid path</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>mission auto-diverts to charger at 38% battery</td>
+<td>?</td>
+<td>?</td>
+</tr>
+</tbody>
+</table>
+<p>Possible categories: spatial policy, command-chain behavior, TF or timing issue, recovery outcome, path feasibility symptom, mission-layer policy error.</p>
+<details><summary>Answer guidance</summary>
+
+This table should help you avoid flattening the entire incident into one cause. Several entries are likely downstream effects or policy context rather than root cause.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-c-root-cause-analysis">Section C — Root Cause Analysis</h2>
+<h3 id="task-c1-build-the-causal-chain">Task C1 — Build the Causal Chain</h3>
+<p>Write a causal chain using this structure:</p>
+<div class="highlight"><pre><span></span><code>Trigger or degraded condition -&gt; immediate Nav2 symptom -&gt; recovery behavior -&gt; downstream planning symptom -&gt; mission-layer decision
+</code></pre></div>
+
+<p>Then answer:</p>
+<ol>
+<li>Which part of the chain currently has the strongest evidence?</li>
+<li>Which part is still only a hypothesis?</li>
+<li>What extra evidence would most reduce uncertainty?</li>
+</ol>
+<details><summary>Answer guidance</summary>
+
+High-quality answers usually treat TF or localization degradation as an upstream candidate, controller invalidation and backup as middle symptoms, and the charge diversion as a possibly separate mission-policy mistake.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h3 id="task-c2-distinguish-root-cause-from-bad-outcome-policy">Task C2 — Distinguish Root Cause From Bad Outcome Policy</h3>
+<p><strong>Questions:</strong></p>
+<ol>
+<li>Is the automatic diversion to charge mission justified by the evidence given?</li>
+<li>Why is that question separate from diagnosing the original navigation issue?</li>
+<li>What two policy contracts appear weak even if Nav2 was partly at fault?</li>
+</ol>
+<details><summary>Answer guidance</summary>
+
+The battery note suggests the diversion policy may be unjustified. That is separate because mission policy can still be wrong even when a real navigation issue occurred. Common weak contracts here are failure classification and post-failure mission escalation rules.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-d-focused-validation-plan">Section D — Focused Validation Plan</h2>
+<p>You have 45 minutes and no hardware access.</p>
+<p>Design a validation plan with exactly four steps. It must include:</p>
+<ol>
+<li>one TF or timing check</li>
+<li>one localization-confidence check</li>
+<li>one command-path check</li>
+<li>one mission-policy review step</li>
+</ol>
+<p>For each step, specify:</p>
+<ul>
+<li>what evidence you inspect</li>
+<li>what result would support your leading hypothesis</li>
+<li>what result would falsify it</li>
+</ul>
+<details><summary>Answer guidance</summary>
+
+The goal is disciplined narrowing. Avoid broad fishing expeditions. Each step should be able to disconfirm part of your current story.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-e-operator-and-dashboard-redesign">Section E — Operator and Dashboard Redesign</h2>
+<p>The current operator ticket only says <code>navigation_failed</code>.</p>
+<h3 id="task-e1-replace-it-with-a-better-incident-summary">Task E1 — Replace It With a Better Incident Summary</h3>
+<p>Write a replacement incident summary of 5 to 7 lines that separates:</p>
+<ul>
+<li>possible localization or TF health issue</li>
+<li>bounded recovery execution</li>
+<li>downstream path failure</li>
+<li>questionable mission escalation</li>
+</ul>
+<p>Then answer:</p>
+<ol>
+<li>What labels should the dashboard have emitted instead?</li>
+<li>Which two timeline events should be highlighted for review by default?</li>
+</ol>
+<details><summary>Answer guidance</summary>
+
+Strong answers create a layered narrative such as: `packing_zone_hold_or_state_degradation`, `recovery_executed`, `planner_no_path_after_recovery`, `mission_policy_diverted_to_charge`. The point is truthful decomposition.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-f-corrective-action-proposal">Section F — Corrective Action Proposal</h2>
+<p>Propose one corrective action in each category below.</p>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Corrective action</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>observability</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>localization or TF robustness</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>recovery policy</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>mission-layer failure handling</td>
+<td>?</td>
+<td>?</td>
+</tr>
+</tbody>
+</table>
+<details><summary>Answer guidance</summary>
+
+The best answers avoid magical one-line fixes. They improve evidence quality, harden the likely weak contract, and reduce the chance of the mission system making a second bad decision after the first fault.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-g-final-rca-writeup">Section G — Final RCA Writeup</h2>
+<p>Write a concise root-cause analysis using this template.</p>
+<div class="highlight"><pre><span></span><code>Incident summary:
+
+Most likely upstream fault:
+
+Evidence supporting it:
+-
+-
+-
+
+Secondary contributing factors:
+-
+-
+
+Uncertain or missing evidence:
+-
+
+Why the dashboard label was misleading:
+
+Recommended next validations:
+1.
+2.
+3.
+</code></pre></div>
+
+<details><summary>Answer guidance</summary>
+
+Strong writeups show hierarchy: upstream fault, downstream Nav2 symptoms, and mission-policy mistakes are separated rather than blended.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-h-senior-reflection">Section H — Senior Reflection</h2>
+<p>Answer briefly but concretely.</p>
+<p><strong>H1.</strong> Why do AMR incidents become expensive when teams use <code>navigation_failed</code> as a catch-all label?</p>
+<p><strong>H2.</strong> What would you teach a new on-call engineer to check first in incidents like this?</p>
+<p><strong>H3.</strong> If you could add one mandatory artifact to every Nav2 incident package, what would it be?</p>
+<details><summary>Answer guidance</summary>
+
+Strong answers mention time-to-diagnosis, bad escalation decisions, and the value of one compact artifact that joins TF health, localization confidence, and mission context.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="deliverable-template">Deliverable Template</h2>
+<div class="highlight"><pre><span></span><code>Incident ID:
+
+Leading hypothesis:
+
+Evidence table:
+- localization or TF:
+- command chain:
+- recovery sequence:
+- planner symptom:
+- mission policy:
+
+Causal chain:
+
+Most likely root cause:
+
+Secondary contributing factors:
+
+Corrective actions:
+1.
+2.
+3.
+4.
+
+Recommended dashboard labels:
+
+Open questions:
+</code></pre></div>
+
+<hr />
+<h2 id="success-criteria">Success Criteria</h2>
+<p>You have completed this capstone well if you can:</p>
+<ol>
+<li>decompose one AMR incident across localization, command path, recovery behavior, planner outcome, and mission policy</li>
+<li>state which evidence is strongest and which conclusions remain provisional</li>
+<li>design a focused validation plan that could falsify your current diagnosis without hardware access</li>
+<li>write an incident summary that operations, robotics engineers, and mission-software engineers can all act on</li>
+</ol>
+            </div>
+        </div>
+
+        <footer class="text-center mt-16 py-6 border-t border-gray-300">
+            <p class="text-gray-500">Robotics Learning Resources</p>
+        </footer>
+    </div>
+</body>
+</html>

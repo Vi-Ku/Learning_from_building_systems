@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>01 — Nav2 System Architecture - Learning From Building Systems</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .card {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        /* Markdown content styling */
+        .md-content h1 { font-size: 2rem; font-weight: 700; color: #111827; margin-top: 2rem; margin-bottom: 1rem; }
+        .md-content h2 { font-size: 1.5rem; font-weight: 600; color: #1f2937; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; }
+        .md-content h3 { font-size: 1.25rem; font-weight: 600; color: #374151; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+        .md-content h4 { font-size: 1.1rem; font-weight: 600; color: #4b5563; margin-top: 1.25rem; margin-bottom: 0.5rem; }
+        .md-content p { margin-bottom: 1rem; line-height: 1.75; color: #374151; }
+        .md-content ul { list-style: disc; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content ol { list-style: decimal; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content li { margin-bottom: 0.35rem; line-height: 1.6; }
+        .md-content code {
+            background-color: #f3f4f6; padding: 0.15rem 0.4rem; border-radius: 0.25rem;
+            font-size: 0.875rem; font-family: 'Fira Code', 'Courier New', monospace; color: #be185d;
+        }
+        .md-content pre {
+            background-color: #1f2937; color: #e5e7eb; padding: 1rem; border-radius: 0.5rem;
+            overflow-x: auto; margin-bottom: 1.25rem; font-size: 0.85rem; line-height: 1.6;
+        }
+        .md-content pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+        .md-content blockquote {
+            border-left: 4px solid #6366f1; background: #eef2ff; padding: 0.75rem 1rem;
+            margin-bottom: 1rem; border-radius: 0 0.5rem 0.5rem 0; color: #374151;
+        }
+        .md-content table { width: 100%; border-collapse: collapse; margin-bottom: 1.25rem; }
+        .md-content th { background: #f9fafb; padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; text-align: left; font-weight: 600; font-size: 0.875rem; }
+        .md-content td { padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; font-size: 0.875rem; }
+        .md-content tr:hover { background-color: #f9fafb; }
+        .md-content hr { border: 0; border-top: 1px solid #e5e7eb; margin: 1.5rem 0; }
+        .md-content strong { font-weight: 600; }
+        .md-content a { color: #2563eb; text-decoration: underline; }
+        .md-content a:hover { color: #1d4ed8; }
+        .md-content img { max-width: 100%; border-radius: 0.5rem; margin: 1rem 0; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-4xl">
+        <a href="index.html" class="text-violet-600 hover:text-violet-800 mb-4 inline-block">&larr; Back to Nav2</a>
+
+        <div class="bg-white rounded-xl shadow-md p-6 sm:p-8 md:p-10">
+            <div class="md-content">
+<h1 id="01-nav2-system-architecture">01 — Nav2 System Architecture</h1>
+<h2 id="the-runtime-boundaries-contracts-and-data-flow-behind-a-production-amr-navigation-stack">The runtime boundaries, contracts, and data flow behind a production AMR navigation stack</h2>
+<p><strong>Prerequisite:</strong> <a href="../03-nav2-architecture.html">03 — Nav2 Architecture</a>, <a href="../01-nodes-topics-actions.html">01 — Nodes Topics Actions</a>, <a href="../02-tf2-time-qos.html">02 — Tf2 Time Qos</a>
+<strong>Unlocks:</strong> Confident Nav2 debugging, cleaner system decomposition, faster incident triage, better launch and ownership decisions for AMR software teams</p>
+<hr />
+<h2 id="why-should-i-care-context">Why Should I Care? (Context)</h2>
+<p>Most Nav2 failures are not caused by a bug inside Nav2 itself. They come from a bad system boundary:</p>
+<ol>
+<li>The mission layer sends goals Nav2 cannot safely execute</li>
+<li>Localization gives Nav2 a pose that is smooth but wrong</li>
+<li>Perception updates the costmap too slowly or with stale data</li>
+<li>Platform code clips or rewrites <code>/cmd_vel</code></li>
+<li>Operators blame the planner when the real problem is lifecycle startup, TF, or map semantics</li>
+</ol>
+<p>If you do not know where Nav2 starts and stops, every navigation incident turns into random log surfing. If you do know the boundaries, you can ask the right question first:</p>
+<ul>
+<li>Did the goal contract fail?</li>
+<li>Did the planner fail?</li>
+<li>Did the controller refuse the path?</li>
+<li>Did the robot never receive a usable velocity command?</li>
+<li>Did another subsystem make Nav2 look guilty?</li>
+</ul>
+<p>That is the point of this lesson: treat Nav2 as a distributed subsystem with hard contracts, not as a black box called &ldquo;navigation&rdquo;.</p>
+<hr />
+<h2 id="part-1-what-nav2-owns-vs-what-it-does-not">PART 1 — WHAT NAV2 OWNS VS WHAT IT DOES NOT</h2>
+<hr />
+<h2 id="11-the-short-version">1.1 The Short Version</h2>
+<p>Nav2 owns the logic that converts a navigation goal into planned motion commands.</p>
+<p>It does <strong>not</strong> own the full autonomy stack.</p>
+<div class="highlight"><pre><span></span><code>Mission / Fleet / UI layer
+    │ creates goals and policies
+    ▼
+Nav2
+    │ computes path, follows path, runs recoveries
+    ▼
+Base controller / safety layer / motor drivers
+    │ turn Twist into wheel motion
+    ▼
+Robot hardware
+</code></pre></div>
+
+<p>If you say &ldquo;Nav2 is responsible for moving the robot,&rdquo; that is directionally true but operationally incomplete. In practice, Nav2 sits between systems that define intent above it and systems that enforce physical safety below it.</p>
+<hr />
+<h2 id="12-ownership-table">1.2 Ownership Table</h2>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Usually owned by Nav2</th>
+<th>Usually owned outside Nav2</th>
+<th>Why it matters</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Goal execution</td>
+<td>Yes</td>
+<td>Mission layer decides which goal to send</td>
+<td>Nav2 executes; it should not invent business intent</td>
+</tr>
+<tr>
+<td>Global path generation</td>
+<td>Yes</td>
+<td>Map production and semantic zoning come from elsewhere</td>
+<td>Planner quality depends on upstream map quality</td>
+</tr>
+<tr>
+<td>Local obstacle avoidance</td>
+<td>Partly</td>
+<td>Sensor drivers and perception quality are upstream</td>
+<td>Nav2 can only react to what enters the costmap</td>
+</tr>
+<tr>
+<td>Robot localization consumption</td>
+<td>Yes</td>
+<td>Localization generation is external</td>
+<td>Nav2 trusts TF and pose sources</td>
+</tr>
+<tr>
+<td>Recovery policy</td>
+<td>Yes</td>
+<td>Fleet or task layer may decide escalation after repeated failure</td>
+<td>Recovery logic belongs near navigation policy</td>
+</tr>
+<tr>
+<td>Traffic coordination between robots</td>
+<td>No</td>
+<td>Fleet manager / traffic manager</td>
+<td>Nav2 is usually single-robot local intelligence</td>
+</tr>
+<tr>
+<td>Hard safety stop</td>
+<td>No</td>
+<td>Safety PLC / collision monitor / certified safety chain</td>
+<td>Safety must override Nav2 when required</td>
+</tr>
+<tr>
+<td>Docking workflow orchestration</td>
+<td>Partly</td>
+<td>Product-specific mission logic often wraps Nav2</td>
+<td>Docking needs navigation plus product rules</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Production rule:</strong> if a failure spans multiple boxes, the incident owner still needs to separate primary cause from visible symptom. Nav2 often shows the symptom first.</p>
+<hr />
+<h2 id="13-the-four-upstream-contracts-nav2-depends-on">1.3 The Four Upstream Contracts Nav2 Depends On</h2>
+<p>Nav2 assumes four things are already true:</p>
+<h3 id="a-the-transform-tree-is-coherent">A. The transform tree is coherent</h3>
+<p>At minimum, Nav2 expects a reliable chain like:</p>
+<div class="highlight"><pre><span></span><code>map -&gt; odom -&gt; base_link -&gt; sensor frames
+</code></pre></div>
+
+<p>If this chain is missing, stale, or inconsistent, every server downstream becomes noisy:</p>
+<ul>
+<li>planner cannot locate start pose correctly</li>
+<li>controller tracks the wrong local pose</li>
+<li>costmaps insert sensor data in the wrong place</li>
+<li>recoveries trigger for the wrong reason</li>
+</ul>
+<h3 id="b-the-robot-pose-is-physically-believable">B. The robot pose is physically believable</h3>
+<p>Nav2 does not prove localization is correct. It uses the pose it receives.</p>
+<p>That means a robot can:</p>
+<ul>
+<li>plan through a rack because AMCL drifted laterally</li>
+<li>refuse a goal because it thinks it starts inside an obstacle</li>
+<li>oscillate near a goal because heading estimate is noisy</li>
+</ul>
+<h3 id="c-the-map-and-sensor-observations-match-reality-closely-enough">C. The map and sensor observations match reality closely enough</h3>
+<p>The global planner and local controller both read a filtered version of the world. If that world model is wrong, the path logic is still internally correct and operationally useless.</p>
+<h3 id="d-velocity-commands-can-actually-reach-the-base">D. Velocity commands can actually reach the base</h3>
+<p>Nav2 publishes motion intent, usually on <code>/cmd_vel</code> or a shaped derivative. The base stack, safety layer, and sometimes a velocity smoother still need to accept, preserve, and execute those commands.</p>
+<p>An AMR that never moves after a valid plan often has a downstream problem, not a planning problem.</p>
+<hr />
+<h2 id="part-2-the-core-nav2-servers">PART 2 — THE CORE NAV2 SERVERS</h2>
+<hr />
+<h2 id="21-the-canonical-runtime-topology">2.1 The Canonical Runtime Topology</h2>
+<div class="highlight"><pre><span></span><code>NavigateToPose action client
+            │
+            ▼
+      bt_navigator
+       │    │    │
+       │    │    └────────► behavior_server
+       │    │
+       │    └─────────────► controller_server
+       │
+       └──────────────────► planner_server
+
+map_server ───────────────► global_costmap
+sensor topics ────────────► local/global costmaps
+amcl / ekf / odom ────────► planner + controller + costmaps via TF
+
+lifecycle_manager manages startup/shutdown for the whole group
+</code></pre></div>
+
+<p>This is the minimum mental model you should be able to draw from memory.</p>
+<hr />
+<h2 id="22-bt_navigator-the-orchestrator">2.2 <code>bt_navigator</code>: The Orchestrator</h2>
+<p><code>bt_navigator</code> is the policy engine. It does not compute paths itself and it does not produce wheel-level control directly. It coordinates the sequence:</p>
+<div class="highlight"><pre><span></span><code>receive goal -&gt; compute path -&gt; follow path -&gt; react to failure -&gt; recover or abort
+</code></pre></div>
+
+<p>Its job is to answer:</p>
+<ul>
+<li>Which action should run next?</li>
+<li>When should replanning happen?</li>
+<li>When should recovery start?</li>
+<li>When should a new goal preempt the current flow?</li>
+</ul>
+<p>In AMR terms, <code>bt_navigator</code> decides the navigation playbook, not the underlying geometry.</p>
+<hr />
+<h2 id="23-planner_server-global-route-computation">2.3 <code>planner_server</code>: Global Route Computation</h2>
+<p>The planner computes a path from start pose to goal pose on the <strong>global</strong> costmap.</p>
+<p>Inputs:</p>
+<ul>
+<li>current pose from TF/localization</li>
+<li>goal pose from the action request</li>
+<li>global costmap data</li>
+<li>planner plugin parameters</li>
+</ul>
+<p>Outputs:</p>
+<ul>
+<li>a <code>nav_msgs/Path</code></li>
+<li>failure if no valid path exists under the current map assumptions</li>
+</ul>
+<p>The planner does <strong>not</strong> guarantee the robot can track the path cleanly. That is the controller&rsquo;s job.</p>
+<hr />
+<h2 id="24-controller_server-path-tracking-under-local-conditions">2.4 <code>controller_server</code>: Path Tracking Under Local Conditions</h2>
+<p>The controller consumes:</p>
+<ul>
+<li>the current path</li>
+<li>current robot pose and velocity</li>
+<li>local costmap state</li>
+</ul>
+<p>and produces motion commands.</p>
+<p>This server is where many &ldquo;the planner is bad&rdquo; complaints actually land. Common reality:</p>
+<ul>
+<li>the planner produced a valid path</li>
+<li>the controller finds it dynamically infeasible or unsafe at runtime</li>
+<li>the robot slows, oscillates, or triggers recovery</li>
+</ul>
+<p>That is not a planner bug unless the path quality itself is unusable.</p>
+<hr />
+<h2 id="25-behavior_server-recovery-and-utility-behaviors">2.5 <code>behavior_server</code>: Recovery and Utility Behaviors</h2>
+<p><code>behavior_server</code> usually hosts behaviors such as:</p>
+<ul>
+<li><code>Spin</code></li>
+<li><code>BackUp</code></li>
+<li><code>Wait</code></li>
+<li>assisted or custom recoveries depending on plugin set</li>
+</ul>
+<p>These are invoked from the BehaviorTree when the normal compute-follow flow fails.</p>
+<p><strong>AMR reality:</strong> recoveries are not just technical conveniences. They encode product policy.</p>
+<p>Examples:</p>
+<ul>
+<li>In a human-heavy aisle, waiting may be better than backing up.</li>
+<li>Near a loading station, backing blindly may be unacceptable.</li>
+<li>In a one-way lane, repeated spinning may waste throughput and block traffic.</li>
+</ul>
+<hr />
+<h2 id="26-costmap-servers-the-shared-world-model">2.6 Costmap Servers: The Shared World Model</h2>
+<p>The costmaps are the bridge between sensors, maps, and motion logic.</p>
+<div class="highlight"><pre><span></span><code>Global costmap: strategic route space across the map
+Local costmap: tactical obstacle space around the robot
+</code></pre></div>
+
+<p>The planner mainly trusts the global costmap.
+The controller mainly trusts the local costmap.</p>
+<p>When these diverge from reality, Nav2 behavior diverges from operator expectations.</p>
+<hr />
+<h2 id="27-lifecycle_manager-the-control-plane">2.7 <code>lifecycle_manager</code>: The Control Plane</h2>
+<p>This is the most overlooked Nav2 node during debugging.</p>
+<p><code>lifecycle_manager</code> handles ordered state transitions for managed nodes:</p>
+<div class="highlight"><pre><span></span><code>configure -&gt; activate -&gt; monitor bond -&gt; deactivate / cleanup / shutdown
+</code></pre></div>
+
+<p>Without it, you can have a planner process running but inactive, a controller waiting on unavailable costmap data, or a navigator that accepts nothing because the dependency chain never reached <code>ACTIVE</code>.</p>
+<p>If Nav2 startup is weird, lifecycle state is one of the first things to check.</p>
+<hr />
+<h2 id="part-3-the-end-to-end-goal-flow">PART 3 — THE END-TO-END GOAL FLOW</h2>
+<hr />
+<h2 id="31-one-navigatetopose-request-step-by-step">3.1 One <code>NavigateToPose</code> Request, Step by Step</h2>
+<div class="highlight"><pre><span></span><code>1. Mission layer sends NavigateToPose(goal)
+2. bt_navigator accepts goal and loads/ticks the BehaviorTree
+3. Planner action node requests a path from planner_server
+4. planner_server reads global costmap + pose -&gt; returns nav_msgs/Path
+5. Controller action node sends path to controller_server
+6. controller_server reads local costmap + current pose -&gt; publishes /cmd_vel
+7. Robot moves; BT keeps ticking
+8. Tree may replan, continue following, recover, or abort
+9. Result returns to the original action client
+</code></pre></div>
+
+<p>Every navigation incident should be mapped onto one of these nine steps.</p>
+<hr />
+<h2 id="32-data-interfaces-that-matter-most">3.2 Data Interfaces That Matter Most</h2>
+<table>
+<thead>
+<tr>
+<th>Interface</th>
+<th>Type</th>
+<th>Why it matters</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>NavigateToPose</code></td>
+<td>ROS2 action</td>
+<td>The top-level contract most apps call</td>
+</tr>
+<tr>
+<td><code>/plan</code> or internal planned path</td>
+<td>topic/action result</td>
+<td>Tells you whether planning succeeded at all</td>
+</tr>
+<tr>
+<td><code>/cmd_vel</code></td>
+<td>topic</td>
+<td>Confirms whether Nav2 is commanding motion</td>
+</tr>
+<tr>
+<td>TF transforms</td>
+<td>transform stream</td>
+<td>Required by almost every server</td>
+</tr>
+<tr>
+<td>global/local costmap topics</td>
+<td>topic</td>
+<td>Shows what Nav2 thinks the world looks like</td>
+</tr>
+<tr>
+<td>lifecycle services and status</td>
+<td>lifecycle/service</td>
+<td>Explains startup health</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Fast triage heuristic:</strong></p>
+<ul>
+<li>no plan: investigate planner, costmap, goal, localization</li>
+<li>plan exists but no <code>/cmd_vel</code>: investigate controller, activation, path validity</li>
+<li><code>/cmd_vel</code> exists but robot does not move: investigate downstream base/safety stack</li>
+</ul>
+<hr />
+<h2 id="33-where-preemption-actually-lands">3.3 Where Preemption Actually Lands</h2>
+<p>When a new goal arrives during execution, preemption does not mean &ldquo;start over from scratch everywhere instantly.&rdquo; It means the action and BT machinery need to:</p>
+<ol>
+<li>accept or reject the new goal</li>
+<li>cancel or replace in-flight actions cleanly</li>
+<li>refresh blackboard values such as <code>goal</code></li>
+<li>trigger replanning and controller update with the new target</li>
+</ol>
+<p>Poor preemption handling shows up as:</p>
+<ul>
+<li>robot finishing the old path after UI changed the mission</li>
+<li>delayed reaction to urgent reroute requests</li>
+<li>stuck action handles with confusing result semantics</li>
+</ul>
+<p>That is why system architecture matters: goal replacement crosses action contracts, BT policy, and server responsiveness.</p>
+<hr />
+<h2 id="part-4-production-boundaries-for-amrs">PART 4 — PRODUCTION BOUNDARIES FOR AMRS</h2>
+<hr />
+<h2 id="41-the-navigation-stack-is-not-the-fleet-stack">4.1 The Navigation Stack Is Not the Fleet Stack</h2>
+<p>In a warehouse, a robot usually obeys more than geometry.</p>
+<p>Examples of policies outside raw Nav2 planning:</p>
+<ul>
+<li>lane reservation</li>
+<li>traffic priority at intersections</li>
+<li>pick/drop task sequencing</li>
+<li>battery-aware mission planning</li>
+<li>docking queue management</li>
+<li>operator intervention workflows</li>
+</ul>
+<p>Nav2 can support these policies, but should not absorb all of them.</p>
+<p><strong>Bad architecture:</strong> mission logic hidden inside a custom planner plugin.</p>
+<p><strong>Better architecture:</strong> mission system decides which goal is legal; Nav2 executes the local navigation contract for that goal.</p>
+<hr />
+<h2 id="42-the-safety-layer-is-a-separate-authority">4.2 The Safety Layer Is a Separate Authority</h2>
+<p>Many AMRs have a safety chain that can override or suppress motion:</p>
+<div class="highlight"><pre><span></span><code>Nav2 -&gt; velocity smoother -&gt; collision monitor / safety PLC -&gt; base controller
+</code></pre></div>
+
+<p>If this chain clips commands, Nav2 may appear sluggish, indecisive, or broken while actually behaving correctly.</p>
+<p>Typical symptoms:</p>
+<ul>
+<li>planner succeeds, controller publishes, robot barely moves</li>
+<li>robot halts near pallet forks because safety field trips repeatedly</li>
+<li>logs show progress checker failure even though controller keeps trying</li>
+</ul>
+<p>The visible Nav2 failure is secondary. The primary cause is lower in the actuation path.</p>
+<hr />
+<h2 id="43-warehouse-specific-failure-modes">4.3 Warehouse-Specific Failure Modes</h2>
+<h3 id="narrow-aisle-optimism">Narrow aisle optimism</h3>
+<p>The map says the aisle is clear, but pallets protrude into the lane in reality. Global planner keeps finding a route; local controller repeatedly aborts.</p>
+<h3 id="map-freshness-mismatch">Map freshness mismatch</h3>
+<p>Static map reflects last month&rsquo;s layout. Planner chooses a valid path on an obsolete topology.</p>
+<h3 id="goal-semantics-mismatch">Goal semantics mismatch</h3>
+<p>Mission layer sends a goal at the center of a rack face instead of the legally reachable staging pose.</p>
+<h3 id="throughput-driven-parameter-drift">Throughput-driven parameter drift</h3>
+<p>Operators increase controller aggressiveness to improve cycle time, causing overshoot near end-of-aisle turns.</p>
+<p>Architecture helps because each of these belongs to a different owner.</p>
+<hr />
+<h2 id="part-5-how-to-think-during-incident-response">PART 5 — HOW TO THINK DURING INCIDENT RESPONSE</h2>
+<hr />
+<h2 id="51-the-first-five-questions">5.1 The First Five Questions</h2>
+<p>When a robot &ldquo;cannot navigate,&rdquo; ask these in order:</p>
+<ol>
+<li>Did Nav2 accept the goal?</li>
+<li>Did a valid global path get produced?</li>
+<li>Did the controller publish usable velocity commands?</li>
+<li>Did the robot physically execute those commands?</li>
+<li>Did recovery fail because of policy, world model, or downstream suppression?</li>
+</ol>
+<p>This sequence avoids a common waste pattern: tuning planners before proving the controller or base ever had a fair chance.</p>
+<hr />
+<h2 id="52-symptom-to-layer-mapping">5.2 Symptom-to-Layer Mapping</h2>
+<table>
+<thead>
+<tr>
+<th>Field symptom</th>
+<th>First layer to inspect</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Goal rejected immediately</td>
+<td>action contract / lifecycle</td>
+<td>server may be inactive or goal invalid</td>
+</tr>
+<tr>
+<td>&ldquo;No path found&rdquo;</td>
+<td>planner + global costmap + localization</td>
+<td>planner failure is usually upstream-data sensitive</td>
+</tr>
+<tr>
+<td>Path exists but robot never starts moving</td>
+<td>controller + <code>/cmd_vel</code> path</td>
+<td>proves whether local execution started</td>
+</tr>
+<tr>
+<td>Robot jerks, spins, backs up, aborts</td>
+<td>BT + controller + local costmap</td>
+<td>recoveries are policy responses to lower-level failure</td>
+</tr>
+<tr>
+<td>Robot moves incorrectly despite clean logs</td>
+<td>TF/localization/base stack</td>
+<td>can be a physically wrong but internally consistent system</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="53-architecture-review-checklist">5.3 Architecture Review Checklist</h2>
+<p>Use this before blaming a single node:</p>
+<ul>
+<li>Can I name the owner of each interface from mission to wheel command?</li>
+<li>Do I know which topics prove each stage is alive?</li>
+<li>Do I know which failures are upstream of Nav2 versus inside Nav2?</li>
+<li>Can I explain why the robot is allowed to attempt this goal at all?</li>
+<li>Can I distinguish navigation policy from safety policy?</li>
+</ul>
+<p>If not, the architecture is still fuzzy in your head.</p>
+<hr />
+<h2 id="part-6-what-good-looks-like">PART 6 — WHAT GOOD LOOKS LIKE</h2>
+<hr />
+<h2 id="61-a-healthy-nav2-system">6.1 A Healthy Nav2 System</h2>
+<p>A healthy production Nav2 stack has these characteristics:</p>
+<ul>
+<li>clear ownership between mission, navigation, safety, and base control</li>
+<li>lifecycle-driven startup with deterministic activation order</li>
+<li>stable TF and believable localization</li>
+<li>costmaps that reflect the operating environment closely enough to be useful</li>
+<li>recoveries designed for the actual AMR environment, not demo defaults</li>
+<li>observability on actions, paths, costmaps, and velocity commands</li>
+</ul>
+<hr />
+<h2 id="62-what-you-should-be-able-to-explain-after-this-lesson">6.2 What You Should Be Able to Explain After This Lesson</h2>
+<p>You should now be able to explain:</p>
+<ol>
+<li>where Nav2 sits in the AMR stack</li>
+<li>what each main Nav2 server is responsible for</li>
+<li>how a <code>NavigateToPose</code> goal becomes motion</li>
+<li>which failures belong to Nav2 and which only appear there first</li>
+<li>why system boundaries matter more than memorizing node names</li>
+</ol>
+<hr />
+<h2 id="63-next-step">6.3 Next Step</h2>
+<p>Continue to <a href="02-nav2-bringup-lifecycle-actions.html">02 — Nav2 Bringup Lifecycle Actions</a>.</p>
+<p>That lesson turns this architecture into operational reality: how the servers are started, transitioned to <code>ACTIVE</code>, and called through their action contracts.</p>
+            </div>
+        </div>
+
+        <footer class="text-center mt-16 py-6 border-t border-gray-300">
+            <p class="text-gray-500">Robotics Learning Resources</p>
+        </footer>
+    </div>
+</body>
+</html>

@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>10 — Nav2 Parameters, Launch, and Plugin Extension - Learning From Building Systems</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .card {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        /* Markdown content styling */
+        .md-content h1 { font-size: 2rem; font-weight: 700; color: #111827; margin-top: 2rem; margin-bottom: 1rem; }
+        .md-content h2 { font-size: 1.5rem; font-weight: 600; color: #1f2937; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; }
+        .md-content h3 { font-size: 1.25rem; font-weight: 600; color: #374151; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+        .md-content h4 { font-size: 1.1rem; font-weight: 600; color: #4b5563; margin-top: 1.25rem; margin-bottom: 0.5rem; }
+        .md-content p { margin-bottom: 1rem; line-height: 1.75; color: #374151; }
+        .md-content ul { list-style: disc; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content ol { list-style: decimal; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content li { margin-bottom: 0.35rem; line-height: 1.6; }
+        .md-content code {
+            background-color: #f3f4f6; padding: 0.15rem 0.4rem; border-radius: 0.25rem;
+            font-size: 0.875rem; font-family: 'Fira Code', 'Courier New', monospace; color: #be185d;
+        }
+        .md-content pre {
+            background-color: #1f2937; color: #e5e7eb; padding: 1rem; border-radius: 0.5rem;
+            overflow-x: auto; margin-bottom: 1.25rem; font-size: 0.85rem; line-height: 1.6;
+        }
+        .md-content pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+        .md-content blockquote {
+            border-left: 4px solid #6366f1; background: #eef2ff; padding: 0.75rem 1rem;
+            margin-bottom: 1rem; border-radius: 0 0.5rem 0.5rem 0; color: #374151;
+        }
+        .md-content table { width: 100%; border-collapse: collapse; margin-bottom: 1.25rem; }
+        .md-content th { background: #f9fafb; padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; text-align: left; font-weight: 600; font-size: 0.875rem; }
+        .md-content td { padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; font-size: 0.875rem; }
+        .md-content tr:hover { background-color: #f9fafb; }
+        .md-content hr { border: 0; border-top: 1px solid #e5e7eb; margin: 1.5rem 0; }
+        .md-content strong { font-weight: 600; }
+        .md-content a { color: #2563eb; text-decoration: underline; }
+        .md-content a:hover { color: #1d4ed8; }
+        .md-content img { max-width: 100%; border-radius: 0.5rem; margin: 1rem 0; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-4xl">
+        <a href="index.html" class="text-violet-600 hover:text-violet-800 mb-4 inline-block">&larr; Back to Nav2</a>
+
+        <div class="bg-white rounded-xl shadow-md p-6 sm:p-8 md:p-10">
+            <div class="md-content">
+<h1 id="10-nav2-parameters-launch-and-plugin-extension">10 — Nav2 Parameters, Launch, and Plugin Extension</h1>
+<h2 id="how-to-structure-configuration-launch-composition-and-extension-decisions-so-an-amr-navigation-stack-stays-maintainable-in-production">How to structure configuration, launch composition, and extension decisions so an AMR navigation stack stays maintainable in production</h2>
+<p><strong>Prerequisite:</strong> <a href="09-nav2-waypoints-docking-zones-and-missions.html">09 — Nav2 Waypoints Docking Zones And Missions</a>, <a href="08-nav2-recoveries-progress-and-goal-checkers.html">08 — Nav2 Recoveries Progress And Goal Checkers</a>, <a href="01-nav2-system-architecture.html">01 — Nav2 System Architecture</a>
+<strong>Unlocks:</strong> Cleaner parameter ownership, safer rollout of tuning changes, better launch decomposition, smarter plugin-extension decisions, stronger long-term maintainability for AMR navigation stacks</p>
+<hr />
+<h2 id="why-should-i-care-context">Why Should I Care? (Context)</h2>
+<p>Teams often reach a point where Nav2 technically works but the surrounding system becomes fragile:</p>
+<ol>
+<li>one giant YAML file contains every robot, every site, and every experiment</li>
+<li>launch files hide parameter overrides in too many places</li>
+<li>nobody knows whether a behavior should be changed via parameters, BT XML, or custom code</li>
+<li>a small plugin need triggers a large unnecessary fork of Nav2 defaults</li>
+<li>tuning changes fix one robot and quietly break another</li>
+</ol>
+<p>That is not a planner or controller problem anymore. It is a configuration and architecture problem.</p>
+<hr />
+<h2 id="part-1-parameter-layering-should-match-ownership">PART 1 — PARAMETER LAYERING SHOULD MATCH OWNERSHIP</h2>
+<hr />
+<h2 id="11-one-giant-yaml-is-a-trap">1.1 One Giant YAML Is a Trap</h2>
+<p>If one parameter file mixes:</p>
+<ul>
+<li>robot geometry</li>
+<li>sensor topics</li>
+<li>controller tuning</li>
+<li>site-specific map overlays</li>
+<li>mission mode differences</li>
+<li>experimental overrides</li>
+</ul>
+<p>then no one can tell what changed behavior or why.</p>
+<p>Production Nav2 needs parameter layering that mirrors real ownership boundaries.</p>
+<hr />
+<h2 id="12-a-practical-layering-model">1.2 A Practical Layering Model</h2>
+<p>Typical useful layers:</p>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Owns</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>platform base</td>
+<td>shared defaults for a robot family</td>
+</tr>
+<tr>
+<td>robot SKU or hardware variant</td>
+<td>footprint, sensors, actuator-related limits</td>
+</tr>
+<tr>
+<td>site or facility</td>
+<td>maps, zones, station geometry, environment-specific constraints</td>
+</tr>
+<tr>
+<td>runtime mode</td>
+<td>sim vs hardware, debug vs production, docking mode if separated</td>
+</tr>
+<tr>
+<td>last-mile override</td>
+<td>temporary targeted experiments with explicit expiration</td>
+</tr>
+</tbody>
+</table>
+<p>This does not require many files for aesthetic reasons. It requires them for blameability and safe change control.</p>
+<hr />
+<h2 id="13-what-should-not-be-mixed">1.3 What Should Not Be Mixed</h2>
+<p>Do not casually mix these in one silent override layer:</p>
+<ul>
+<li>footprint changes with controller tuning</li>
+<li>localization frame settings with planner selection</li>
+<li>site-specific zones with universal motion limits</li>
+</ul>
+<p>Those changes have different blast radii.</p>
+<hr />
+<h2 id="part-2-parameter-decisions-by-category">PART 2 — PARAMETER DECISIONS BY CATEGORY</h2>
+<hr />
+<h2 id="21-good-candidates-for-shared-defaults">2.1 Good Candidates for Shared Defaults</h2>
+<p>Usually safe to share across a robot family:</p>
+<ul>
+<li>planner and controller plugin selections</li>
+<li>baseline progress and goal checker policy</li>
+<li>common BT tree choice</li>
+<li>common costmap structure</li>
+</ul>
+<p>Only do this when the robots are truly similar enough. Shared defaults are powerful and dangerous.</p>
+<hr />
+<h2 id="22-good-candidates-for-robot-specific-overrides">2.2 Good Candidates for Robot-Specific Overrides</h2>
+<p>Usually robot-specific:</p>
+<ul>
+<li>footprint or radius</li>
+<li>acceleration and velocity limits</li>
+<li>sensor topic names and frame IDs</li>
+<li>minimum executable speed due to motor/base deadband</li>
+<li>docking approach behavior if station hardware differs</li>
+</ul>
+<p>If these live in shared defaults, cross-robot regressions are inevitable.</p>
+<hr />
+<h2 id="23-good-candidates-for-site-specific-overrides">2.3 Good Candidates for Site-Specific Overrides</h2>
+<p>Usually site-specific:</p>
+<ul>
+<li>map files</li>
+<li>keepout and speed zone overlays</li>
+<li>dock staging poses</li>
+<li>aisle-width-driven safety margins</li>
+<li>environmental sensor peculiarities</li>
+</ul>
+<p>If a site forces a special rule, document it as a site rule, not as a universal Nav2 truth.</p>
+<hr />
+<h2 id="part-3-launch-structure-should-expose-the-system-shape">PART 3 — LAUNCH STRUCTURE SHOULD EXPOSE THE SYSTEM SHAPE</h2>
+<hr />
+<h2 id="31-launch-files-are-architecture-not-boilerplate">3.1 Launch Files Are Architecture, Not Boilerplate</h2>
+<p>Your launch structure should make it easy to answer:</p>
+<ul>
+<li>where localization is started</li>
+<li>where Nav2 servers are started</li>
+<li>which parameter layer is active</li>
+<li>what namespaces apply to this robot</li>
+<li>whether composition is enabled</li>
+<li>what lifecycle manager controls which nodes</li>
+</ul>
+<p>If launch files hide those answers, debugging takes longer than it should.</p>
+<hr />
+<h2 id="32-useful-decomposition-patterns">3.2 Useful Decomposition Patterns</h2>
+<p>Common clean split:</p>
+<div class="highlight"><pre><span></span><code>top-level robot bringup
+    -&gt; localization launch
+    -&gt; map and semantic data launch
+    -&gt; nav2 bringup launch
+    -&gt; mission or docking services launch
+</code></pre></div>
+
+<p>This makes ownership boundaries visible.</p>
+<hr />
+<h2 id="33-composition-and-namespacing">3.3 Composition and Namespacing</h2>
+<p>Composition and namespaces are valuable, especially for multi-robot or performance-sensitive systems, but they increase observability demands.</p>
+<p>Be explicit about:</p>
+<ul>
+<li>node names</li>
+<li>namespaces</li>
+<li>topic remaps</li>
+<li>parameter sources</li>
+<li>lifecycle manager scope</li>
+</ul>
+<p>If namespacing is inconsistent, teams may debug the wrong robot instance or the wrong parameter set.</p>
+<hr />
+<h2 id="part-4-when-to-use-parameters-bt-xml-or-a-plugin">PART 4 — WHEN TO USE PARAMETERS, BT XML, OR A PLUGIN</h2>
+<hr />
+<h2 id="41-use-parameters-when-the-mechanism-is-right-but-the-tuning-is-wrong">4.1 Use Parameters When the Mechanism Is Right but the Tuning Is Wrong</h2>
+<p>Parameter changes are appropriate when:</p>
+<ul>
+<li>the selected planner or controller family is already correct</li>
+<li>the BT policy is conceptually correct</li>
+<li>the issue is threshold, weight, frequency, tolerance, or limit tuning</li>
+</ul>
+<p>Examples:</p>
+<ul>
+<li>adjust lookahead or critic weights</li>
+<li>change progress-checker thresholds</li>
+<li>tune costmap inflation or observation persistence</li>
+</ul>
+<p>Do not write code for problems that are already handled by configuration.</p>
+<hr />
+<h2 id="42-use-bt-xml-when-the-problem-is-policy">4.2 Use BT XML When the Problem Is Policy</h2>
+<p>BT changes are appropriate when:</p>
+<ul>
+<li>retry ordering should change</li>
+<li>one recovery should happen before another</li>
+<li>a condition should gate a subtree</li>
+<li>goal updates should interrupt behavior differently</li>
+</ul>
+<p>If the problem is &ldquo;what should the robot try next,&rdquo; BT XML is often the right layer.</p>
+<hr />
+<h2 id="43-use-a-plugin-when-the-existing-mechanism-is-fundamentally-insufficient">4.3 Use a Plugin When the Existing Mechanism Is Fundamentally Insufficient</h2>
+<p>Plugin work is appropriate when:</p>
+<ul>
+<li>available planner/controller/behavior logic cannot express the needed behavior</li>
+<li>semantic needs are not representable through existing layers</li>
+<li>you need custom scoring, filtering, or behavior that is stable enough to own in code</li>
+</ul>
+<p>Examples:</p>
+<ul>
+<li>custom controller behavior for a platform-specific constraint</li>
+<li>custom costmap layer or filter tied to product semantics</li>
+<li>custom BT action or condition node integrating system-specific state</li>
+</ul>
+<p>Code should be the answer to insufficiency, not impatience.</p>
+<hr />
+<h2 id="part-5-plugin-extension-decision-checklist">PART 5 — PLUGIN EXTENSION DECISION CHECKLIST</h2>
+<hr />
+<h2 id="51-ask-these-questions-before-writing-a-plugin">5.1 Ask These Questions Before Writing a Plugin</h2>
+<ol>
+<li>can existing parameters solve it cleanly?</li>
+<li>can BT policy solve it more safely?</li>
+<li>is the need specific to one robot/site or a true product capability?</li>
+<li>can the team test and maintain this extension for years, not days?</li>
+<li>does the extension create a second architecture that future engineers must rediscover?</li>
+</ol>
+<p>If the answer to the first two questions is yes, do not write code.</p>
+<hr />
+<h2 id="52-good-reasons-to-extend">5.2 Good Reasons to Extend</h2>
+<p>Good reasons:</p>
+<ul>
+<li>product has stable, recurring needs not handled by current plugins</li>
+<li>the extension aligns with a clear ownership boundary</li>
+<li>the behavior can be verified with bags, simulation, and targeted field tests</li>
+<li>the team is willing to own documentation and rollout discipline</li>
+</ul>
+<p>Bad reasons:</p>
+<ul>
+<li>tuning is hard</li>
+<li>defaults were not understood</li>
+<li>one temporary site issue created pressure for a quick hack</li>
+</ul>
+<hr />
+<h2 id="part-6-common-configuration-failure-patterns">PART 6 — COMMON CONFIGURATION FAILURE PATTERNS</h2>
+<hr />
+<h2 id="61-parameter-override-shadowing">6.1 Parameter Override Shadowing</h2>
+<p>Symptoms:</p>
+<ul>
+<li>a change appears to do nothing</li>
+<li>a fix works in one launch path but not another</li>
+<li>sim and hardware behave differently without obvious code changes</li>
+</ul>
+<p>Typical cause:</p>
+<ul>
+<li>the real effective parameter source is not the file the team edited</li>
+</ul>
+<p>This is why parameter layering must be visible and documented.</p>
+<hr />
+<h2 id="62-shared-defaults-break-one-robot-variant">6.2 Shared Defaults Break One Robot Variant</h2>
+<p>Symptoms:</p>
+<ul>
+<li>one robot class improves</li>
+<li>another starts oscillating, clipping, or timing out</li>
+</ul>
+<p>Typical cause:</p>
+<ul>
+<li>robot-specific constraints were stored in a supposedly shared layer</li>
+</ul>
+<p>This is a configuration ownership bug, not a controller bug.</p>
+<hr />
+<h2 id="63-launch-composition-hides-missing-dependencies">6.3 Launch Composition Hides Missing Dependencies</h2>
+<p>Symptoms:</p>
+<ul>
+<li>nodes exist but behavior is half-ready</li>
+<li>wrong namespace or remap causes silent miswiring</li>
+<li>lifecycle activation succeeds but runtime contracts fail</li>
+</ul>
+<p>This happens when launch structure optimizes convenience over visibility.</p>
+<hr />
+<h2 id="part-7-safe-rollout-of-nav2-changes">PART 7 — SAFE ROLLOUT OF NAV2 CHANGES</h2>
+<hr />
+<h2 id="71-validate-in-a-fixed-order">7.1 Validate in a Fixed Order</h2>
+<p>For any meaningful Nav2 change:</p>
+<ol>
+<li>diff the effective parameters, not just the source file</li>
+<li>test in simulation or bag replay when possible</li>
+<li>validate open space, narrow aisle, and final approach separately</li>
+<li>check logs for lifecycle, TF, checker, and recovery changes</li>
+<li>roll out to one robot or site before broad adoption</li>
+</ol>
+<p>This is how you keep tuning work from becoming a fleet-wide roulette wheel.</p>
+<hr />
+<h2 id="72-what-to-instrument">7.2 What to Instrument</h2>
+<p>Useful evidence for rollout review:</p>
+<ul>
+<li>planner and controller selected plugin IDs</li>
+<li>effective checker thresholds</li>
+<li>recovery counts and abort reasons</li>
+<li>command-chain topics before and after smoothing/safety</li>
+<li>localization and TF warnings during the run</li>
+</ul>
+<p>If you cannot observe the effect, you cannot safely own the extension.</p>
+<hr />
+<h2 id="73-documentation-expectations">7.3 Documentation Expectations</h2>
+<p>Every non-trivial Nav2 extension should answer:</p>
+<ul>
+<li>what problem it solves</li>
+<li>why parameters or BT XML were insufficient</li>
+<li>what upstream and downstream contracts it assumes</li>
+<li>how to validate it</li>
+<li>who owns it when field failures happen</li>
+</ul>
+<p>If that cannot be written cleanly, the architecture probably is not clean enough yet.</p>
+<hr />
+<h2 id="part-8-senior-judgment-checklist">PART 8 — SENIOR JUDGMENT CHECKLIST</h2>
+<hr />
+<h2 id="81-strong-default-behaviors">8.1 Strong Default Behaviors</h2>
+<p>A senior-quality Nav2 configuration strategy usually has these traits:</p>
+<ul>
+<li>shared defaults are truly shared</li>
+<li>robot and site differences are explicit</li>
+<li>launch structure reveals ownership boundaries</li>
+<li>BT XML is used for policy, not for masking upstream defects</li>
+<li>plugins are added only when existing mechanisms are genuinely insufficient</li>
+</ul>
+<hr />
+<h2 id="82-senior-interview-version">8.2 Senior Interview Version</h2>
+<p>Strong answers explain when to:</p>
+<ul>
+<li>tune parameters</li>
+<li>modify BT XML</li>
+<li>split launch files</li>
+<li>write a plugin</li>
+<li>refuse a plugin and fix architecture instead</li>
+</ul>
+<p>That distinction is what keeps a working Nav2 system maintainable as the AMR product grows.</p>
+<hr />
+<h2 id="what-you-should-be-able-to-do-now">What You Should Be Able to Do Now</h2>
+<p>After lessons 01 through 10, you should be able to:</p>
+<ul>
+<li>trace a Nav2 goal end to end</li>
+<li>separate localization, costmap, planning, control, and recovery faults</li>
+<li>reason about waypoint flows, docking, and semantic zones</li>
+<li>structure parameter and launch ownership cleanly</li>
+<li>decide whether a new behavior belongs in tuning, BT policy, or a plugin</li>
+</ul>
+<p>That is the threshold from &ldquo;I know Nav2 terms&rdquo; to &ldquo;I can own Nav2 on a production AMR.&rdquo;</p>
+            </div>
+        </div>
+
+        <footer class="text-center mt-16 py-6 border-t border-gray-300">
+            <p class="text-gray-500">Robotics Learning Resources</p>
+        </footer>
+    </div>
+</body>
+</html>

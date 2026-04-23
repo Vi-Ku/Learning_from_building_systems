@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exercise06 — Nav2 Localization Contract Diagnosis - Learning From Building Systems</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .card {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        /* Markdown content styling */
+        .md-content h1 { font-size: 2rem; font-weight: 700; color: #111827; margin-top: 2rem; margin-bottom: 1rem; }
+        .md-content h2 { font-size: 1.5rem; font-weight: 600; color: #1f2937; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; }
+        .md-content h3 { font-size: 1.25rem; font-weight: 600; color: #374151; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+        .md-content h4 { font-size: 1.1rem; font-weight: 600; color: #4b5563; margin-top: 1.25rem; margin-bottom: 0.5rem; }
+        .md-content p { margin-bottom: 1rem; line-height: 1.75; color: #374151; }
+        .md-content ul { list-style: disc; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content ol { list-style: decimal; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content li { margin-bottom: 0.35rem; line-height: 1.6; }
+        .md-content code {
+            background-color: #f3f4f6; padding: 0.15rem 0.4rem; border-radius: 0.25rem;
+            font-size: 0.875rem; font-family: 'Fira Code', 'Courier New', monospace; color: #be185d;
+        }
+        .md-content pre {
+            background-color: #1f2937; color: #e5e7eb; padding: 1rem; border-radius: 0.5rem;
+            overflow-x: auto; margin-bottom: 1.25rem; font-size: 0.85rem; line-height: 1.6;
+        }
+        .md-content pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+        .md-content blockquote {
+            border-left: 4px solid #6366f1; background: #eef2ff; padding: 0.75rem 1rem;
+            margin-bottom: 1rem; border-radius: 0 0.5rem 0.5rem 0; color: #374151;
+        }
+        .md-content table { width: 100%; border-collapse: collapse; margin-bottom: 1.25rem; }
+        .md-content th { background: #f9fafb; padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; text-align: left; font-weight: 600; font-size: 0.875rem; }
+        .md-content td { padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; font-size: 0.875rem; }
+        .md-content tr:hover { background-color: #f9fafb; }
+        .md-content hr { border: 0; border-top: 1px solid #e5e7eb; margin: 1.5rem 0; }
+        .md-content strong { font-weight: 600; }
+        .md-content a { color: #2563eb; text-decoration: underline; }
+        .md-content a:hover { color: #1d4ed8; }
+        .md-content img { max-width: 100%; border-radius: 0.5rem; margin: 1rem 0; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-4xl">
+        <a href="../index.html" class="text-violet-600 hover:text-violet-800 mb-4 inline-block">&larr; Back to Nav2</a>
+
+        <div class="bg-white rounded-xl shadow-md p-6 sm:p-8 md:p-10">
+            <div class="md-content">
+<!-- markdownlint-disable MD033 -->
+
+<h1 id="exercise06-nav2-localization-contract-diagnosis">Exercise06 — Nav2 Localization Contract Diagnosis</h1>
+<h2 id="companion-exercises-for-07-nav2-localization-odom-amcl-ekf-11-nav2-debugging-observability-and-bag-analysis-and-12-nav2-amr-failure-patterns-and-capstone">Companion exercises for <a href="../07-nav2-localization-odom-amcl-ekf.html">07 — Nav2 Localization Odom Amcl Ekf</a>, <a href="../11-nav2-debugging-observability-and-bag-analysis.html">11 — Nav2 Debugging Observability And Bag Analysis</a>, and <a href="../12-nav2-amr-failure-patterns-and-capstone.html">12 — Nav2 Amr Failure Patterns And Capstone</a></h2>
+<p><strong>Estimated time:</strong> 95 to 120 minutes<br />
+<strong>Prerequisite lessons:</strong> <a href="../04-nav2-costmaps-and-layers.html">04 — Nav2 Costmaps And Layers</a>, <a href="../07-nav2-localization-odom-amcl-ekf.html">07 — Nav2 Localization Odom Amcl Ekf</a>, <a href="../11-nav2-debugging-observability-and-bag-analysis.html">11 — Nav2 Debugging Observability And Bag Analysis</a>, <a href="../12-nav2-amr-failure-patterns-and-capstone.html">12 — Nav2 Amr Failure Patterns And Capstone</a></p>
+<p><strong>Mode options:</strong></p>
+<ul>
+<li><strong>Simulation:</strong> run Nav2 with AMCL or fused odometry in a mapped environment and inspect transform quality during navigation.</li>
+<li><strong>Bag replay:</strong> replay TF, odometry, AMCL, IMU, and scan data to diagnose localization failure without moving hardware.</li>
+<li><strong>Incident review:</strong> use the supplied logs, topic snapshots, and parameter fragments as an RCA exercise suitable for production design review.</li>
+</ul>
+<p><strong>Validation goal:</strong> by the end of this lab you should be able to prove whether navigation symptoms come from the localization contract itself, from downstream Nav2 consumers of that contract, or from operator assumptions that skipped the evidence.</p>
+<hr />
+<h2 id="overview">Overview</h2>
+<p>Localization failures are expensive because they rarely look like localization failures at first.</p>
+<p>In AMR operations they often surface as:</p>
+<ol>
+<li>controllers oscillating on an apparently valid path</li>
+<li>costmaps looking inconsistent with the real aisle geometry</li>
+<li>recoveries triggering even though the floor looks clear</li>
+<li>operators blaming planner or controller plugins when the pose estimate is already broken</li>
+</ol>
+<p>This lab treats localization as a contract with clear consumers: TF, costmaps, planners, controllers, and mission logic. Your job is to diagnose where that contract is violated and how the violation propagates.</p>
+<hr />
+<h2 id="section-a-define-the-localization-contract">Section A — Define the Localization Contract</h2>
+<h3 id="task-a1-name-the-contract-clauses">Task A1 — Name the Contract Clauses</h3>
+<p>For each clause below, explain why Nav2 depends on it.</p>
+<table>
+<thead>
+<tr>
+<th>Contract clause</th>
+<th>Why Nav2 depends on it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>map -&gt; odom</code> is globally meaningful</td>
+<td>?</td>
+</tr>
+<tr>
+<td><code>odom -&gt; base_link</code> is smooth and continuous</td>
+<td>?</td>
+</tr>
+<tr>
+<td>transform timestamps are current enough for costmap and controller use</td>
+<td>?</td>
+</tr>
+<tr>
+<td>pose estimate covariance stays within operational expectations</td>
+<td>?</td>
+</tr>
+<tr>
+<td>laser or sensor observations align with the believed pose</td>
+<td>?</td>
+</tr>
+</tbody>
+</table>
+<details><summary>Answer guidance</summary>
+
+Strong answers distinguish between global correctness and local smoothness:
+
+- `map -> odom` anchors the robot in the shared map so planning and zone semantics make sense globally.
+- `odom -> base_link` must stay smooth so local control is stable even while global localization is updated.
+- stale timestamps break message filters and cause costmap or controller consumers to work from old geometry.
+- covariance is an operational confidence signal; low-quality localization should change mission policy, not just silently continue.
+- sensor alignment proves the pose estimate is consistent with the actual environment.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h3 id="task-a2-symptom-to-clause-mapping">Task A2 — Symptom-to-Clause Mapping</h3>
+<p>Map each symptom to the contract clause you would inspect first.</p>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>First clause to inspect</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>global plan passes through shelving that looks occupied in RViz</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>controller output alternates left and right in a straight aisle</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>local costmap repeatedly drops sensor observations</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>robot reaches staging locations smoothly but is globally offset by 0.7 m</td>
+<td>?</td>
+<td>?</td>
+</tr>
+</tbody>
+</table>
+<details><summary>Answer guidance</summary>
+
+Typical mapping:
+
+- incorrect global path through real obstacles: suspect global pose alignment or map frame correctness first
+- left-right controller indecision in a straight aisle: suspect pose jitter or frame inconsistency before changing controller critics
+- dropped observations: inspect transform timing and message-filter compatibility first
+- smooth local motion but globally shifted robot: suspect `map -> odom` or localization alignment, not local odometry smoothness
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-b-evidence-packet-triage">Section B — Evidence Packet Triage</h2>
+<p>Use a live system, bag replay, or the evidence below.</p>
+<div class="highlight"><pre><span></span><code>$ ros2 topic echo /amcl_pose --once
+pose:
+  pose:
+    position: {x: 18.42, y: 6.31, z: 0.0}
+    orientation: {z: 0.71, w: 0.70}
+  covariance: [0.45, 0.0, 0.0, 0.0, 0.0, 0.0,
+               0.0, 0.42, 0.0, 0.0, 0.0, 0.0,
+               0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+               0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+               0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+               0.0, 0.0, 0.0, 0.0, 0.0, 0.38]
+
+$ ros2 run tf2_ros tf2_echo map base_link
+At time 430.200
+- Translation: [18.44, 6.26, 0.000]
+- Rotation: in Quaternion [0.000, 0.000, 0.706, 0.708]
+- Average rate: 3.8
+- Buffer length: 0.9
+
+[local_costmap.local_costmap] Message Filter dropping message: frame &#39;laser&#39; at time 429.740 for reason &#39;the timestamp on the message is earlier than all the data in the transform cache&#39;
+[controller_server] No valid control command found
+[bt_navigator] NavigateToPose aborted
+</code></pre></div>
+
+<p><strong>Questions:</strong></p>
+<ol>
+<li>Which evidence item is the strongest sign that localization is not healthy enough for confident navigation?</li>
+<li>Why is <code>NavigateToPose</code> aborting not the primary diagnosis?</li>
+<li>What three checks would you run next before changing Nav2 tuning parameters?</li>
+</ol>
+<details><summary>Answer guidance</summary>
+
+Good answers usually combine two signals:
+
+- high covariance suggests weak localization confidence
+- TF echo rate and buffer length are suspiciously poor for a healthy runtime consumer stack
+- dropped observations indicate TF and timing misalignment, which makes costmaps and control unreliable
+
+The action abort is downstream fallout. The next checks should focus on TF publication rate, simulated or system time alignment, and whether AMCL or EKF is publishing consistent transforms during the replay window.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-c-drift-versus-jump-diagnosis">Section C — Drift Versus Jump Diagnosis</h2>
+<p>Read the two incident summaries and classify them.</p>
+<h3 id="incident-1">Incident 1</h3>
+<div class="highlight"><pre><span></span><code>At shift start the robot pose aligns with the map.
+After 11 minutes of aisle driving, the robot appears 0.6 m into the rack face in RViz.
+Odometry remains smooth. No sudden TF discontinuity is observed.
+Global plans become increasingly unrealistic.
+</code></pre></div>
+
+<h3 id="incident-2">Incident 2</h3>
+<div class="highlight"><pre><span></span><code>The robot looks aligned during bag replay.
+When AMCL receives a scan burst after a turn, the map pose snaps by 0.4 m.
+The controller briefly commands a strong corrective turn.
+Mission logic reports a navigation failure immediately after the pose jump.
+</code></pre></div>
+
+<p><strong>Questions:</strong></p>
+<ol>
+<li>Which incident looks more like drift, and which looks more like a pose jump?</li>
+<li>Why do those two failure modes create different Nav2 symptoms?</li>
+<li>What mitigation or monitoring differs between them?</li>
+</ol>
+<details><summary>Answer guidance</summary>
+
+Incident 1 is classic drift: global correctness degrades gradually while local motion stays smooth. Incident 2 is a pose jump: the map-frame belief changes abruptly and destabilizes downstream consumers.
+
+Mitigations differ:
+
+- drift pushes you toward odometry quality, sensor fusion quality, and long-horizon consistency checks
+- jumps push you toward AMCL tuning, outlier handling, relocalization thresholds, and mission-layer guards that pause or revalidate after large pose corrections
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-d-mission-contract-design">Section D — Mission Contract Design</h2>
+<p>You are reviewing a mission node that only checks whether <code>/navigate_to_pose</code> exists before dispatching goals.</p>
+<h3 id="task-d1-preflight-policy-review">Task D1 — Preflight Policy Review</h3>
+<p><strong>Questions:</strong></p>
+<ol>
+<li>Why is action availability alone an unsafe preflight gate?</li>
+<li>What localization-specific preflight checks would you add for a warehouse AMR?</li>
+<li>What operator status should the mission layer expose when those checks fail?</li>
+</ol>
+<details><summary>Answer guidance</summary>
+
+Action availability proves almost nothing about pose trustworthiness. A stronger answer includes checks such as:
+
+- localization node healthy and current
+- covariance below an agreed threshold for the mission type
+- `map -> odom -> base_link` available with sane timestamps
+- no recent pose jump or TF discontinuity over a short observation window
+
+Operator-facing status should be explicit, such as `localization_not_trusted`, not a vague `navigation_failed` message.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h3 id="task-d2-recovery-escalation-choice">Task D2 — Recovery Escalation Choice</h3>
+<p>An operator suggests adding more recovery retries whenever localization quality drops because &ldquo;sometimes it recovers itself.&rdquo; Decide whether each action below is appropriate.</p>
+<table>
+<thead>
+<tr>
+<th>Proposed response</th>
+<th>Appropriate?</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>retry controller recovery three more times</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>slow the robot and request localization revalidation</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>clear costmaps immediately on every covariance spike</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>pause mission execution and ask for a re-localization event if pose jump exceeds threshold</td>
+<td>?</td>
+<td>?</td>
+</tr>
+</tbody>
+</table>
+<details><summary>Answer guidance</summary>
+
+The important distinction is whether the action addresses a localization contract failure or only hides it.
+
+- extra controller recoveries rarely fix bad localization on their own
+- slowing and revalidating can be reasonable if the localization issue is transient and bounded
+- clearing costmaps is only justified when stale obstacle state is actually implicated, not as a generic localization remedy
+- pausing on large pose jumps is often the safest mission behavior in production AMRs
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-e-design-a-replay-first-diagnosis-loop">Section E — Design a Replay-First Diagnosis Loop</h2>
+<p>Define a four-step diagnosis loop that can be run from a bag replay or log package without hardware access.</p>
+<p>Your loop must include:</p>
+<ol>
+<li>one TF verification step</li>
+<li>one pose-confidence step</li>
+<li>one downstream Nav2 consumer check</li>
+<li>one decision rule for whether tuning Nav2 is allowed before fixing localization</li>
+</ol>
+<details><summary>Answer guidance</summary>
+
+The strongest answers sequence the work like this:
+
+1. prove TF availability and timing
+2. prove pose estimate plausibility and confidence
+3. inspect costmap or controller behavior using that pose
+4. explicitly block planner or controller tuning if the localization contract is not yet trustworthy
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-f-amr-production-reflection">Section F — AMR Production Reflection</h2>
+<p>Answer briefly but concretely.</p>
+<p><strong>F1.</strong> Why is &ldquo;the robot is roughly in the right place&rdquo; not a usable localization standard for narrow-aisle AMRs?</p>
+<p><strong>F2.</strong> Which three dashboard signals would tell you within 15 seconds that Nav2 is failing because of localization quality rather than planner choice?</p>
+<p><strong>F3.</strong> If you had to automate one guardrail for every replay-based incident review, what would it be and why?</p>
+<details><summary>Answer guidance</summary>
+
+Strong answers usually mention aisle clearance margins, speed-zone semantics, docking tolerances, and the need to separate confidence from mere availability. Dashboard signals should combine pose confidence, TF freshness, and one downstream symptom such as observation drops or controller invalid-command rate.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="deliverable-template">Deliverable Template</h2>
+<div class="highlight"><pre><span></span><code>Mode used:
+
+Localization stack under review:
+
+Evidence captured:
+- TF health:
+- covariance or confidence:
+- observation or costmap symptom:
+- navigation symptom:
+
+Primary diagnosis:
+
+Downstream impacts:
+
+Recommended fixes:
+1.
+2.
+3.
+
+Mission-layer guardrails:
+
+Open risks:
+</code></pre></div>
+
+<hr />
+<h2 id="success-criteria">Success Criteria</h2>
+<p>You have completed this lab well if you can:</p>
+<ol>
+<li>define the localization contract in terms Nav2 consumers actually depend on</li>
+<li>separate drift, jumps, stale TF, and weak confidence instead of calling them all &ldquo;bad localization&rdquo;</li>
+<li>show why many apparent controller or planner failures are only downstream effects of pose problems</li>
+<li>design mission and operator guardrails that react to localization quality with evidence rather than guesswork</li>
+</ol>
+            </div>
+        </div>
+
+        <footer class="text-center mt-16 py-6 border-t border-gray-300">
+            <p class="text-gray-500">Robotics Learning Resources</p>
+        </footer>
+    </div>
+</body>
+</html>

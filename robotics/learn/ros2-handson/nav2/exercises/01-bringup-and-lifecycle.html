@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exercise01 — Nav2 Bringup and Lifecycle Lab - Learning From Building Systems</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .card {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        /* Markdown content styling */
+        .md-content h1 { font-size: 2rem; font-weight: 700; color: #111827; margin-top: 2rem; margin-bottom: 1rem; }
+        .md-content h2 { font-size: 1.5rem; font-weight: 600; color: #1f2937; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; }
+        .md-content h3 { font-size: 1.25rem; font-weight: 600; color: #374151; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+        .md-content h4 { font-size: 1.1rem; font-weight: 600; color: #4b5563; margin-top: 1.25rem; margin-bottom: 0.5rem; }
+        .md-content p { margin-bottom: 1rem; line-height: 1.75; color: #374151; }
+        .md-content ul { list-style: disc; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content ol { list-style: decimal; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content li { margin-bottom: 0.35rem; line-height: 1.6; }
+        .md-content code {
+            background-color: #f3f4f6; padding: 0.15rem 0.4rem; border-radius: 0.25rem;
+            font-size: 0.875rem; font-family: 'Fira Code', 'Courier New', monospace; color: #be185d;
+        }
+        .md-content pre {
+            background-color: #1f2937; color: #e5e7eb; padding: 1rem; border-radius: 0.5rem;
+            overflow-x: auto; margin-bottom: 1.25rem; font-size: 0.85rem; line-height: 1.6;
+        }
+        .md-content pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+        .md-content blockquote {
+            border-left: 4px solid #6366f1; background: #eef2ff; padding: 0.75rem 1rem;
+            margin-bottom: 1rem; border-radius: 0 0.5rem 0.5rem 0; color: #374151;
+        }
+        .md-content table { width: 100%; border-collapse: collapse; margin-bottom: 1.25rem; }
+        .md-content th { background: #f9fafb; padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; text-align: left; font-weight: 600; font-size: 0.875rem; }
+        .md-content td { padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; font-size: 0.875rem; }
+        .md-content tr:hover { background-color: #f9fafb; }
+        .md-content hr { border: 0; border-top: 1px solid #e5e7eb; margin: 1.5rem 0; }
+        .md-content strong { font-weight: 600; }
+        .md-content a { color: #2563eb; text-decoration: underline; }
+        .md-content a:hover { color: #1d4ed8; }
+        .md-content img { max-width: 100%; border-radius: 0.5rem; margin: 1rem 0; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-4xl">
+        <a href="../index.html" class="text-violet-600 hover:text-violet-800 mb-4 inline-block">&larr; Back to Nav2</a>
+
+        <div class="bg-white rounded-xl shadow-md p-6 sm:p-8 md:p-10">
+            <div class="md-content">
+<!-- markdownlint-disable MD033 -->
+
+<h1 id="exercise01-nav2-bringup-and-lifecycle-lab">Exercise01 — Nav2 Bringup and Lifecycle Lab</h1>
+<h2 id="companion-exercises-for-01-nav2-system-architecture-and-02-nav2-bringup-lifecycle-actions">Companion exercises for <a href="../01-nav2-system-architecture.html">01 — Nav2 System Architecture</a> and <a href="../02-nav2-bringup-lifecycle-actions.html">02 — Nav2 Bringup Lifecycle Actions</a></h2>
+<p><strong>Estimated time:</strong> 75 to 90 minutes<br />
+<strong>Prerequisite lessons:</strong> <a href="../01-nav2-system-architecture.html">01 — Nav2 System Architecture</a>, <a href="../02-nav2-bringup-lifecycle-actions.html">02 — Nav2 Bringup Lifecycle Actions</a>, <a href="../../03-nav2-architecture.html">03 — Nav2 Architecture</a></p>
+<p><strong>Mode options:</strong></p>
+<ul>
+<li><strong>Simulation:</strong> run Nav2 in Gazebo or another simulator and inspect lifecycle state transitions live.</li>
+<li><strong>Bag and log analysis:</strong> if you cannot run a robot or simulator, treat the provided command outputs and log snippets as your incident evidence and work the lab as an RCA drill.</li>
+<li><strong>Production shadowing:</strong> if you already have AMR logs from your workplace, substitute them where the lab asks for evidence capture.</li>
+</ul>
+<p><strong>Validation goal:</strong> by the end of this lab you should be able to prove whether Nav2 is merely started, properly configured, or actually ready to accept <code>NavigateToPose</code> goals without hand-waving.</p>
+<hr />
+<h2 id="overview">Overview</h2>
+<p>This lab is about the most common false positive in Nav2 operations: &ldquo;the stack is up&rdquo; when the stack is only half up.</p>
+<p>In production AMRs, lifecycle mistakes create expensive confusion:</p>
+<ol>
+<li>planner and controller processes exist, but one server never reaches <code>ACTIVE</code></li>
+<li>mission code sends a goal before <code>bt_navigator</code> can coordinate the rest of the stack</li>
+<li>a node configures successfully but cannot do useful work because TF, map, or sensor dependencies are still missing</li>
+<li>an operator restarts random nodes instead of proving which lifecycle contract failed first</li>
+</ol>
+<p>The exercises below force you to use state evidence, action availability, and startup order to diagnose bringup correctly.</p>
+<hr />
+<h2 id="section-a-lifecycle-state-mapping">Section A — Lifecycle State Mapping</h2>
+<p>For each prompt, write the answer before expanding the guidance.</p>
+<p><strong>A1.</strong> Explain the operational difference between these statements:</p>
+<ol>
+<li>&ldquo;The process is running&rdquo;</li>
+<li>&ldquo;The lifecycle node is <code>INACTIVE</code>&ldquo;</li>
+<li>&ldquo;The lifecycle node is <code>ACTIVE</code>&ldquo;</li>
+<li>&ldquo;The navigation system is healthy&rdquo;</li>
+</ol>
+<details><summary>Answer guidance</summary>
+
+Your answer should separate four different claims:
+
+- **Process running:** the executable exists in the OS and shows up in `ros2 node list`, but this says nothing about whether publishers, action servers, costmaps, or TF dependencies are usable.
+- **`INACTIVE`:** the node completed configuration and allocated resources, but it is not yet performing full runtime work. For Nav2 this often means the server exists but is not actually servicing normal requests.
+- **`ACTIVE`:** the node is ready for normal runtime behavior, such as accepting actions and publishing operational outputs.
+- **System healthy:** every required server reached `ACTIVE`, their dependencies are valid, and cross-node contracts such as TF, map, costmaps, and action availability all work together.
+
+The key point: lifecycle state is necessary but not sufficient. A green lifecycle table can still hide stale TF, empty costmaps, or broken localization.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<p><strong>A2.</strong> Fill in the table below for the main Nav2 bringup sequence.</p>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Why it must be ready before downstream nodes depend on it</th>
+<th>Symptom if missing or late</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>map server or localization</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>global and local costmaps</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>planner server</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>controller server</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>bt navigator</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>lifecycle manager</td>
+<td>?</td>
+<td>?</td>
+</tr>
+</tbody>
+</table>
+<details><summary>Answer guidance</summary>
+
+A strong answer should mention that the lifecycle manager sequences transitions, costmaps depend on map and sensor or TF correctness, planner depends on a usable global costmap, controller depends on a usable local costmap and path-following dependencies, and `bt_navigator` depends on the lower servers being alive because it only orchestrates them.
+
+Typical failure wording:
+
+- missing map or localization: planner cannot produce valid routes
+- missing costmap health: planner or controller reach `ACTIVE` but behave uselessly
+- missing planner or controller: `NavigateToPose` goal may be accepted by the top-level action path but abort later when the BT cannot complete the required subtree
+- missing lifecycle manager: activation order is manual or inconsistent, producing half-started systems
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-b-hands-on-bringup-drill">Section B — Hands-On Bringup Drill</h2>
+<p>Use either a live Nav2 simulation or the evidence blocks below.</p>
+<h3 id="task-b1-prove-bringup-health-with-a-minimal-evidence-packet">Task B1 — Prove Bringup Health With a Minimal Evidence Packet</h3>
+<p>Collect or reason about these five artifacts:</p>
+<ol>
+<li><code>ros2 lifecycle nodes</code></li>
+<li>lifecycle state of planner, controller, and bt navigator</li>
+<li>whether <code>navigate_to_pose</code> action is discoverable</li>
+<li>one TF sanity check for <code>map -&gt; odom -&gt; base_link</code></li>
+<li>one log line that proves activation completed in order</li>
+</ol>
+<p>If running live, use commands like:</p>
+<div class="highlight"><pre><span></span><code>ros2<span class="w"> </span>lifecycle<span class="w"> </span>nodes
+ros2<span class="w"> </span>lifecycle<span class="w"> </span>get<span class="w"> </span>/planner_server
+ros2<span class="w"> </span>lifecycle<span class="w"> </span>get<span class="w"> </span>/controller_server
+ros2<span class="w"> </span>lifecycle<span class="w"> </span>get<span class="w"> </span>/bt_navigator
+ros2<span class="w"> </span>action<span class="w"> </span>list<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>navigate
+ros2<span class="w"> </span>run<span class="w"> </span>tf2_ros<span class="w"> </span>tf2_echo<span class="w"> </span>map<span class="w"> </span>base_link
+</code></pre></div>
+
+<p>If you cannot run Nav2, use this evidence packet instead:</p>
+<div class="highlight"><pre><span></span><code>$ ros2 lifecycle get /planner_server
+Node /planner_server has current state: active [3]
+
+$ ros2 lifecycle get /controller_server
+Node /controller_server has current state: active [3]
+
+$ ros2 lifecycle get /bt_navigator
+Node /bt_navigator has current state: inactive [2]
+
+$ ros2 action list
+/compute_path_to_pose
+/follow_path
+
+[lifecycle_manager_navigation] Activating planner_server
+[lifecycle_manager_navigation] Activating controller_server
+[lifecycle_manager_navigation] Timed out waiting for bt_navigator bond
+</code></pre></div>
+
+<p><strong>Questions:</strong></p>
+<ol>
+<li>Is this stack healthy enough for mission software to send a navigation goal?</li>
+<li>Which single piece of evidence is the fastest disqualifier?</li>
+<li>What would you check next before blaming launch files broadly?</li>
+</ol>
+<details><summary>Answer guidance</summary>
+
+1. No. The top-level stack is not ready because `bt_navigator` is still `INACTIVE` and the action list does not show `/navigate_to_pose`.
+2. The fastest disqualifier is the missing top-level navigation action or the inactive `bt_navigator`. Either one proves the stack cannot yet service a normal navigation request.
+3. Check why `bt_navigator` failed to activate: missing bond, missing dependency, parameter or plugin load failure, or a downstream server the navigator depends on not being fully usable.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h3 id="task-b2-startup-failure-triage">Task B2 — Startup Failure Triage</h3>
+<p>Read the following startup log and write a three-step triage plan.</p>
+<div class="highlight"><pre><span></span><code>[lifecycle_manager_navigation] Configuring planner_server
+[planner_server] Created global costmap
+[planner_server] Activating
+[controller_server] Activating
+[controller_server] Unable to get transform from base_link to map
+[controller_server] Timed out waiting for transform after 1.00s
+[lifecycle_manager_navigation] Failed to bring up node: controller_server
+[bt_navigator] Waiting on external lifecycle transitions to activate
+</code></pre></div>
+
+<p><strong>Questions:</strong></p>
+<ol>
+<li>Which contract failed first: lifecycle, TF, costmap, planner, or controller?</li>
+<li>Why is <code>bt_navigator</code> not the root cause even though it is still waiting?</li>
+<li>Name one likely fix in each category: launch/config, TF/localization, and operator workflow.</li>
+</ol>
+<details><summary>Answer guidance</summary>
+
+The first broken contract is TF availability for the controller. The lifecycle manager is doing its job; it attempted ordered activation and stopped when the controller could not satisfy a prerequisite. `bt_navigator` is downstream fallout because it should not activate before the required lower servers are healthy.
+
+Possible fixes:
+
+- **Launch/config:** ensure localization or static transform publishers are started before controller activation.
+- **TF/localization:** verify `map`, `odom`, and `base_link` ownership and timestamps; ensure AMCL or EKF is actually publishing the required transforms.
+- **Operator workflow:** never send test goals until transform readiness has been proven with a TF query.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-c-action-contract-check">Section C — Action Contract Check</h2>
+<p>This section connects lifecycle readiness to the action surface your mission layer depends on.</p>
+<h3 id="task-c1-goal-acceptance-vs-bringup-health">Task C1 — Goal Acceptance vs Bringup Health</h3>
+<p>Suppose a custom mission node retries <code>NavigateToPose</code> every 500 ms until a goal is accepted.</p>
+<p><strong>Questions:</strong></p>
+<ol>
+<li>Why is this retry pattern dangerous during bringup?</li>
+<li>What preflight checks should the mission node perform before sending the first goal?</li>
+<li>What status should the mission layer expose to operators instead of repeatedly saying &ldquo;navigation failed&rdquo;?</li>
+</ol>
+<details><summary>Answer guidance</summary>
+
+Good answers should mention:
+
+- repeated goals hide startup problems and create noisy logs
+- goal rejection during bringup is not the same class of problem as runtime navigation failure
+- the mission layer should gate on action availability, lifecycle health, and optionally localization readiness before issuing goals
+- operator-facing status should be something like "navigation stack not ready" or "bringup incomplete" rather than a misleading execution failure label
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h3 id="task-c2-write-a-startup-readiness-checklist">Task C2 — Write a Startup Readiness Checklist</h3>
+<p>Write a six-line checklist that an on-call engineer can use before saying Nav2 is ready for a shift.</p>
+<p>Your checklist must include:</p>
+<ul>
+<li>lifecycle state</li>
+<li>action surface</li>
+<li>TF correctness</li>
+<li>map or localization availability</li>
+<li>command chain or controller health</li>
+<li>one evidence artifact to archive</li>
+</ul>
+<details><summary>Example answer structure</summary>
+
+An acceptable checklist looks like:
+
+1. planner, controller, behavior server, and bt navigator all report `ACTIVE`
+2. `/navigate_to_pose` and supporting actions appear in `ros2 action list`
+3. `map -> odom -> base_link` exists with sane timestamps
+4. localization or map server output matches expected environment state
+5. controller server and local costmap show no immediate startup warnings
+6. store one bringup log excerpt or screenshot for the incident record
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-d-amr-production-reflection">Section D — AMR Production Reflection</h2>
+<p>Answer briefly but concretely.</p>
+<p><strong>D1.</strong> In a warehouse AMR, why is an incomplete startup more dangerous than an obvious crash?</p>
+<p><strong>D2.</strong> Which signals would you surface on an operator dashboard so that &ldquo;half-started Nav2&rdquo; is visible within 10 seconds?</p>
+<p><strong>D3.</strong> If you could automate only one bringup gate in CI or in a pre-shift validation script, what would it be and why?</p>
+<details><summary>Answer guidance</summary>
+
+Good answers usually mention that obvious crashes trigger intervention quickly, while half-started systems waste time and can create unsafe or misleading mission behavior. Operator signals should expose lifecycle state, top-level action availability, TF health, and recent startup warnings. A strong automation choice is a readiness probe that validates lifecycle state plus action availability plus one TF check, because that catches the most expensive false positives early.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="deliverable-template">Deliverable Template</h2>
+<p>Use this structure for your lab write-up.</p>
+<div class="highlight"><pre><span></span><code>Bringup environment:
+Simulation / bag replay / log-only / production shadow
+
+Evidence captured:
+- lifecycle states:
+- actions visible:
+- TF check:
+- startup logs:
+
+Root cause summary:
+
+Immediate remediation:
+
+Prevention for future bringup:
+</code></pre></div>
+
+<hr />
+<h2 id="success-criteria">Success Criteria</h2>
+<p>You have completed this lab well if you can:</p>
+<ol>
+<li>reject the statement &ldquo;the stack is up&rdquo; unless you have lifecycle and action evidence</li>
+<li>identify whether a startup incident is really a TF, lifecycle, or dependency-order problem</li>
+<li>explain why <code>bt_navigator</code> often reports the symptom while another server holds the root cause</li>
+<li>write an operator-facing readiness check that distinguishes startup health from runtime failure</li>
+</ol>
+            </div>
+        </div>
+
+        <footer class="text-center mt-16 py-6 border-t border-gray-300">
+            <p class="text-gray-500">Robotics Learning Resources</p>
+        </footer>
+    </div>
+</body>
+</html>

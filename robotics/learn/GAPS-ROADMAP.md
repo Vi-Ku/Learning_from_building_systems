@@ -1,5 +1,6 @@
 # Learning Gaps Roadmap
-### What's missing, why it matters, and in what order to build it
+
+## What's missing, why it matters, and in what order to build it
 
 ---
 
@@ -9,7 +10,7 @@ All seven tracks have been written. The table below shows each track's current s
 Future work: Linux RT internals (extend cpp-advanced/03) and deeper hardware exercises once
 the STM32 + logic analyzer are in hand.
 
-```
+```text
 EXISTING (COMPLETE)                     STATUS
 ────────────────────────────────────    ────────────────────────────────────────
 electronics/    (hardware theory)       🟢 7 lessons + exercises
@@ -24,21 +25,24 @@ python-scripting/ (typing/test/polars)  🟢 3 lessons + 3 exercises
 ---
 
 ## Track 1: Navigation & State Estimation
-**Priority: HIGHEST**
+
+**Priority:** HIGHEST
+
 **Why now:** You investigate `ESTIMATOR_STATE_INVALID`, slip detection, line-sensor covariance
 blow-up, and EKF divergence tickets daily. You know the robot code deeply (repo memory) but
-lack the mathematical theory to immediately see *why* a covariance grows / explodes / converges.
+lack the mathematical theory to immediately see *why* a covariance grows, explodes, or converges.
 
 **Goal:** Be able to look at any estimator log and reason from first principles about whether
 the observed covariance trajectory is expected or anomalous.
 
 **Timeline:** 6 weeks · 3–4 hrs/week · no hardware needed
 
-**Status:** � Complete — 6 lessons + 5 exercises written
+**Status:** 🟢 Complete — 6 lessons + 5 exercises written
+
 **Folder:** `learn/navigation-estimator/`
 
 | Week | Topic | Practical Relevance |
-|------|-------|---------------|
+| ---- | ----- | ------------------- |
 | 1 | Dead-reckoning & wheel odometry math | `predict()` noise model |
 | 2 | EKF theory: prediction step, covariance propagation | Covariance INF = slipped/collision |
 | 3 | EKF measurement update: Mahalanobis, innovation gating | Line-Sensor update in `update()` |
@@ -47,27 +51,30 @@ the observed covariance trajectory is expected or anomalous.
 | 6 | Ceres line-sensor solver internals and failure diagnosis | Bell-curve fit failures and estimator-side debugging |
 
 **Files to create:**
-```
+
+```text
 navigation-estimator/
-├── 00-learning-plan.md        ← dependency graph, study order, checkpoints
-├── 01-dead-reckoning.md       ← odometry math, unicycle model, arc integration
-├── 02-kalman-filter.md        ← KF → EKF derivation, predict/update equations
-├── 03-measurement-models.md   ← line sensors as constraints, Mahalanobis gating
-├── 04-imu-fusion.md           ← gyro integration, bias estimation, line-sensor theta
-├── 05-failure-modes.md        ← covariance blow-up patterns, slip vs collision vs delocalize
-├── 06-ceres-line-sensor-deep-dive.md ← line-fit solver behavior, fit diagnostics, edge cases
+├── 00-learning-plan.md                   ← dependency graph, study order, checkpoints
+├── 01-dead-reckoning.md                  ← odometry math, unicycle model, arc integration
+├── 02-kalman-filter.md                   ← KF → EKF derivation, predict/update equations
+├── 03-measurement-models.md              ← line sensors as constraints, Mahalanobis gating
+├── 04-imu-fusion.md                      ← gyro integration, bias estimation, line-sensor theta
+├── 05-failure-modes.md                   ← covariance blow-up patterns, slip vs collision vs delocalize
+├── 06-ceres-line-sensor-deep-dive.md     ← line-fit solver behavior, fit diagnostics, edge cases
 └── exercises/
     ├── 01-odometry-math.md
-    ├── 02-kalman-1d.md        ← build a 1D Kalman filter by hand
-    ├── 03-ekf-unicycle.md     ← implement EKF for a unicycle robot in Python
-    ├── 04-log-diagnosis.md    ← given a covariance trajectory, identify the failure
-    └── 05-robot-specific.md     ← navigation estimator parameter tuning exercises
+    ├── 02-kalman-1d.md                   ← compute 1D Kalman predict and update steps with explicit numbers
+    ├── 03-ekf-unicycle.md                ← work through line constraints, innovations, and measurement rejection by hand
+    ├── 04-log-diagnosis.md               ← reason about gyro bias, theta fusion, and when IMU corrections should be trusted
+    └── 05-robot-specific.md              ← read estimator symptoms like RCA cases and separate slip, delocalization, and collision paths
 ```
 
 ---
 
 ## Track 2: ROS2 Hands-On Exercises
-**Priority: HIGH**
+
+**Priority:** HIGH
+
 **Why:** `zephyr/study-notes/05-jetson-ros2.md` (1524 lines) is theory-only. You work with
 ROS2 topics, nodes, tf2, nav2 every day but haven't built a systematic exercise set.
 
@@ -76,17 +83,19 @@ well enough to explain frame drop bugs.
 
 **Timeline:** 3 weeks · 3–4 hrs/week
 
-**Status:** � Complete — 3 lessons + 4 exercises written
+**Status:** 🟢 Complete — 3 lessons + 4 exercises written
+
 **Folder:** `learn/ros2-handson/`
 
 | Week | Topic | Practical Relevance |
-|------|-------|---------------|
+| ---- | ----- | ------------------- |
 | 1 | Nodes, topics, services, actions, lifecycle | AMR node architecture |
 | 2 | tf2 transforms, time sync, QoS profiles | TF lookup failures in nav logs |
 | 3 | Nav2 BT architecture, costmaps, planner/controller | RCS navigation stack |
 
 **Files to create:**
-```
+
+```text
 ros2-handson/
 ├── 00-learning-plan.md
 ├── 01-nodes-topics-actions.md
@@ -102,27 +111,31 @@ ros2-handson/
 ---
 
 ## Track 3: Python / Robot Scripting
-**Priority: MEDIUM**
+
+**Priority:** MEDIUM
+
 **Why:** You write Python scripts daily (RCA analysis, KB tools, log parsing) but there's no
 structured skill-building. Gaps: async patterns, dataclass typing, pandas/polars for log analysis,
-test coverage for scripts.
+and test coverage for scripts.
 
-**Goal:** Write analysis scripts that are testable, typed, and maintainable — not just
+**Goal:** Write analysis scripts that are testable, typed, and maintainable, not just
 "it works on my machine."
 
 **Timeline:** 3 weeks · 2–3 hrs/week
 
-**Status:** � Complete — 3 lessons + 3 exercises written
+**Status:** 🟢 Complete — 3 lessons + 3 exercises written
+
 **Folder:** `learn/python-scripting/`
 
 | Week | Topic | Practical Relevance |
-|------|-------|---------------|
+| ---- | ----- | ------------------- |
 | 1 | Type hints, dataclasses, Pydantic for config validation | `session_tracker.py`, `knowledge_search.py` |
 | 2 | pytest, fixtures, mocking for CLI scripts | Script tests in `tests/` |
 | 3 | pandas/polars for time-series log analysis | Bag CSV analysis patterns |
 
 **Files to create:**
-```
+
+```text
 python-scripting/
 ├── 00-learning-plan.md
 ├── 01-types-dataclasses.md
@@ -137,17 +150,21 @@ python-scripting/
 ---
 
 ## Track 4: Zephyr Deep-Dive
-**Priority: MEDIUM (blocked by hardware)**
+
+**Priority:** MEDIUM (blocked by hardware)
+
 **Why:** `zephyr/deep-dive/` exists but is empty. Meant for hardware-stage deep dives once
 the STM32 + logic analyzer are in hand.
 
 **Timeline:** Add content incrementally as hardware is acquired (see `zephyr/00-mastery-plan.md` hardware list)
 
-**Status:** � Complete — 12 deep-dives + README written
+**Status:** 🟢 Complete — 12 deep-dives + README written
+
 **Folder:** `learn/zephyr/deep-dive/`
 
 **Files to create (when hardware arrives):**
-```
+
+```text
 zephyr/deep-dive/
 ├── 01-first-build-flash-debug.md   ← blinky to shell, GDB, Segger RTT
 ├── 02-spi-slave-first-frame.md     ← wire up logic analyzer, capture first byte
@@ -159,12 +176,16 @@ zephyr/deep-dive/
 ---
 
 ## Track 5: Linux RT Internals
-**Priority: LOW**
+
+**Priority:** LOW
+
 **Why:** `cpp-advanced/03-rt-linux-programming` partially covers this (SCHED_FIFO, mutex, priority inversion).
 Not a separate track — extend cpp-advanced/03 instead.
 
 **Status:** 🟢 Partially covered in `cpp-advanced/03-rt-linux-programming/`
+
 **Action:** After completing cpp-advanced weeks 1–5, add:
+
 - `perf` and `ftrace` for latency profiling
 - `/proc/latency_stats` interpretation
 - PREEMPT_RT patch model
@@ -175,10 +196,10 @@ Not a separate track — extend cpp-advanced/03 instead.
 
 All content is written. Suggested study order for the best learning flow:
 
-```
+```text
 CORE (do these first, in parallel):
 │
-├── navigation-estimator/   ← highest RCA value, 5 weeks
+├── navigation-estimator/   ← highest RCA value, 6 weeks
 ├── cpp-advanced/           ← 18 modules, work through progressively
 │
 THEN:
@@ -197,7 +218,7 @@ ALWAYS AVAILABLE:
 
 ## Quick-Start: Next Session
 
-Start here → [navigation-estimator/00-learning-plan.md](navigation-estimator/00-learning-plan.md)
+Start here → [navigation-estimator/00-learning-plan.html](navigation-estimator/00-learning-plan.html)
 
 **Day 1 goal (2 hrs):** Read `01-dead-reckoning.md` and be able to derive
 `(x', y', θ')` from two encoder counts for a differential-drive robot.

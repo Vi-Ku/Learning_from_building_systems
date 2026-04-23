@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>03 — Nav2 BT Navigator and BehaviorTree XML - Learning From Building Systems</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .card {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        /* Markdown content styling */
+        .md-content h1 { font-size: 2rem; font-weight: 700; color: #111827; margin-top: 2rem; margin-bottom: 1rem; }
+        .md-content h2 { font-size: 1.5rem; font-weight: 600; color: #1f2937; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; }
+        .md-content h3 { font-size: 1.25rem; font-weight: 600; color: #374151; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+        .md-content h4 { font-size: 1.1rem; font-weight: 600; color: #4b5563; margin-top: 1.25rem; margin-bottom: 0.5rem; }
+        .md-content p { margin-bottom: 1rem; line-height: 1.75; color: #374151; }
+        .md-content ul { list-style: disc; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content ol { list-style: decimal; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content li { margin-bottom: 0.35rem; line-height: 1.6; }
+        .md-content code {
+            background-color: #f3f4f6; padding: 0.15rem 0.4rem; border-radius: 0.25rem;
+            font-size: 0.875rem; font-family: 'Fira Code', 'Courier New', monospace; color: #be185d;
+        }
+        .md-content pre {
+            background-color: #1f2937; color: #e5e7eb; padding: 1rem; border-radius: 0.5rem;
+            overflow-x: auto; margin-bottom: 1.25rem; font-size: 0.85rem; line-height: 1.6;
+        }
+        .md-content pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+        .md-content blockquote {
+            border-left: 4px solid #6366f1; background: #eef2ff; padding: 0.75rem 1rem;
+            margin-bottom: 1rem; border-radius: 0 0.5rem 0.5rem 0; color: #374151;
+        }
+        .md-content table { width: 100%; border-collapse: collapse; margin-bottom: 1.25rem; }
+        .md-content th { background: #f9fafb; padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; text-align: left; font-weight: 600; font-size: 0.875rem; }
+        .md-content td { padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; font-size: 0.875rem; }
+        .md-content tr:hover { background-color: #f9fafb; }
+        .md-content hr { border: 0; border-top: 1px solid #e5e7eb; margin: 1.5rem 0; }
+        .md-content strong { font-weight: 600; }
+        .md-content a { color: #2563eb; text-decoration: underline; }
+        .md-content a:hover { color: #1d4ed8; }
+        .md-content img { max-width: 100%; border-radius: 0.5rem; margin: 1rem 0; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-4xl">
+        <a href="index.html" class="text-violet-600 hover:text-violet-800 mb-4 inline-block">&larr; Back to Nav2</a>
+
+        <div class="bg-white rounded-xl shadow-md p-6 sm:p-8 md:p-10">
+            <div class="md-content">
+<h1 id="03-nav2-bt-navigator-and-behaviortree-xml">03 — Nav2 BT Navigator and BehaviorTree XML</h1>
+<h2 id="how-nav2-encodes-navigation-policy-recovery-logic-and-runtime-decision-flow-for-real-amrs">How Nav2 encodes navigation policy, recovery logic, and runtime decision flow for real AMRs</h2>
+<p><strong>Prerequisite:</strong> <a href="01-nav2-system-architecture.html">01 — Nav2 System Architecture</a>, <a href="02-nav2-bringup-lifecycle-actions.html">02 — Nav2 Bringup Lifecycle Actions</a>, <a href="../03-nav2-architecture.html">03 — Nav2 Architecture</a>
+<strong>Unlocks:</strong> BT debugging, safe tree customization, better recovery design, clearer separation between policy bugs and algorithm bugs</p>
+<hr />
+<h2 id="why-should-i-care-context">Why Should I Care? (Context)</h2>
+<p>Two robots can run the same planner and controller plugins yet behave very differently because their BehaviorTrees make different decisions.</p>
+<p>That is why BT understanding matters. The tree decides:</p>
+<ol>
+<li>when to plan</li>
+<li>when to replan</li>
+<li>when to keep following versus abort</li>
+<li>which recovery behavior runs first</li>
+<li>when a new goal interrupts current execution</li>
+</ol>
+<p>If a warehouse AMR spins six times in a blocked aisle before giving up, that is not merely a controller story. It is a policy story encoded in BT XML.</p>
+<hr />
+<h2 id="part-1-what-bt_navigator-really-does">PART 1 — WHAT <code>bt_navigator</code> REALLY DOES</h2>
+<hr />
+<h2 id="11-it-is-the-navigation-policy-engine">1.1 It Is the Navigation Policy Engine</h2>
+<p><code>bt_navigator</code> receives high-level navigation actions such as <code>NavigateToPose</code> and executes a BehaviorTree that orchestrates lower-level action servers.</p>
+<p>Think of it like this:</p>
+<div class="highlight"><pre><span></span><code>planner_server      = route computation
+controller_server   = path execution
+behavior_server     = recovery behaviors
+bt_navigator        = policy and sequencing across all of them
+</code></pre></div>
+
+<p>Without <code>bt_navigator</code>, you still have useful primitives, but you do not have a coherent navigation workflow.</p>
+<hr />
+<h2 id="12-why-xml-matters">1.2 Why XML Matters</h2>
+<p>The XML is not just configuration fluff. It is executable policy.</p>
+<p>It defines:</p>
+<ul>
+<li>which nodes run in what order</li>
+<li>what blackboard keys they read and write</li>
+<li>how retries are bounded</li>
+<li>whether replanning is periodic or event-driven</li>
+<li>how goal updates short-circuit recoveries</li>
+</ul>
+<p>Changing XML can alter field behavior as much as changing controller parameters.</p>
+<hr />
+<h2 id="part-2-the-core-bt-mental-model">PART 2 — THE CORE BT MENTAL MODEL</h2>
+<hr />
+<h2 id="21-return-states">2.1 Return States</h2>
+<p>Every BT node returns one of three states:</p>
+<div class="highlight"><pre><span></span><code>SUCCESS
+FAILURE
+RUNNING
+</code></pre></div>
+
+<p>That sounds simple, but most debugging confusion comes from forgetting what <code>RUNNING</code> means.</p>
+<p><code>RUNNING</code> means the node is still in progress and will be ticked again on later cycles. This is normal for long-running actions like path following or spinning.</p>
+<hr />
+<h2 id="22-common-control-nodes">2.2 Common Control Nodes</h2>
+<h3 id="sequence"><code>Sequence</code></h3>
+<p>Run children in order. Failure in one child fails the sequence.</p>
+<h3 id="fallback-or-reactivefallback"><code>Fallback</code> or <code>ReactiveFallback</code></h3>
+<p>Try children in order until one succeeds.</p>
+<h3 id="recoverynode"><code>RecoveryNode</code></h3>
+<p>Wrap a primary behavior plus a fallback recovery subtree with a retry budget.</p>
+<h3 id="pipelinesequence"><code>PipelineSequence</code></h3>
+<p>Critical in Nav2 because it enables planning and following to coexist over repeated ticks.</p>
+<h3 id="decorators-like-ratecontroller">Decorators like <code>RateController</code></h3>
+<p>Modify how often or under what condition a child is ticked.</p>
+<hr />
+<h2 id="23-the-blackboard">2.3 The Blackboard</h2>
+<p>The blackboard is the shared runtime key-value space for the tree.</p>
+<p>Typical values include:</p>
+<ul>
+<li><code>goal</code></li>
+<li><code>path</code></li>
+<li>controller or planner IDs</li>
+<li>flags about updated goals or recovery state</li>
+</ul>
+<p>If you misunderstand blackboard ports, you can build a tree that looks structurally valid but passes stale data between nodes.</p>
+<p><strong>Example:</strong> a planner writes a new <code>path</code>, but the controller is still wired to an old key or incompatible branch path.</p>
+<hr />
+<h2 id="part-3-reading-the-default-navigation-flow">PART 3 — READING THE DEFAULT NAVIGATION FLOW</h2>
+<hr />
+<h2 id="31-canonical-pattern">3.1 Canonical Pattern</h2>
+<p>A common Nav2 pattern looks roughly like this:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">&lt;RecoveryNode</span><span class="w"> </span><span class="na">number_of_retries=</span><span class="s">&quot;6&quot;</span><span class="w"> </span><span class="na">name=</span><span class="s">&quot;NavigateRecovery&quot;</span><span class="nt">&gt;</span>
+<span class="w">  </span><span class="nt">&lt;PipelineSequence</span><span class="w"> </span><span class="na">name=</span><span class="s">&quot;NavigateWithReplanning&quot;</span><span class="nt">&gt;</span>
+<span class="w">    </span><span class="nt">&lt;RateController</span><span class="w"> </span><span class="na">hz=</span><span class="s">&quot;1.0&quot;</span><span class="nt">&gt;</span>
+<span class="w">      </span><span class="nt">&lt;ComputePathToPose</span><span class="w"> </span><span class="na">goal=</span><span class="s">&quot;{goal}&quot;</span><span class="w"> </span><span class="na">path=</span><span class="s">&quot;{path}&quot;</span><span class="nt">/&gt;</span>
+<span class="w">    </span><span class="nt">&lt;/RateController&gt;</span>
+<span class="w">    </span><span class="nt">&lt;FollowPath</span><span class="w"> </span><span class="na">path=</span><span class="s">&quot;{path}&quot;</span><span class="w"> </span><span class="na">controller_id=</span><span class="s">&quot;FollowPath&quot;</span><span class="nt">/&gt;</span>
+<span class="w">  </span><span class="nt">&lt;/PipelineSequence&gt;</span>
+
+<span class="w">  </span><span class="nt">&lt;ReactiveFallback</span><span class="w"> </span><span class="na">name=</span><span class="s">&quot;RecoveryFallback&quot;</span><span class="nt">&gt;</span>
+<span class="w">    </span><span class="nt">&lt;GoalUpdated/&gt;</span>
+<span class="w">    </span><span class="nt">&lt;SequenceWithMemory</span><span class="w"> </span><span class="na">name=</span><span class="s">&quot;RecoveryActions&quot;</span><span class="nt">&gt;</span>
+<span class="w">      </span><span class="nt">&lt;ClearEntireCostmap</span><span class="w"> </span><span class="err">...</span><span class="nt">/&gt;</span>
+<span class="w">      </span><span class="nt">&lt;Spin</span><span class="w"> </span><span class="err">...</span><span class="nt">/&gt;</span>
+<span class="w">      </span><span class="nt">&lt;Wait</span><span class="w"> </span><span class="err">...</span><span class="nt">/&gt;</span>
+<span class="w">      </span><span class="nt">&lt;BackUp</span><span class="w"> </span><span class="err">...</span><span class="nt">/&gt;</span>
+<span class="w">    </span><span class="nt">&lt;/SequenceWithMemory&gt;</span>
+<span class="w">  </span><span class="nt">&lt;/ReactiveFallback&gt;</span>
+<span class="nt">&lt;/RecoveryNode&gt;</span>
+</code></pre></div>
+
+<p>This tells you several important things immediately:</p>
+<ol>
+<li>planning is periodic, not one-shot</li>
+<li>path following is the main runtime behavior</li>
+<li>recoveries are bounded by retry count</li>
+<li>a new goal can interrupt recovery handling</li>
+</ol>
+<hr />
+<h2 id="32-tick-by-tick-thinking">3.2 Tick-by-Tick Thinking</h2>
+<p>You should be able to narrate a few ticks by hand.</p>
+<div class="highlight"><pre><span></span><code>Tick 1:
+  plan -&gt; SUCCESS
+  follow path -&gt; RUNNING
+
+Tick 2:
+  planner may be skipped by RateController
+  follow path -&gt; RUNNING
+
+Tick N:
+  planner replans
+  follow path keeps running with updated path
+</code></pre></div>
+
+<p>If path following fails:</p>
+<div class="highlight"><pre><span></span><code>main pipeline -&gt; FAILURE
+RecoveryNode enters fallback subtree
+GoalUpdated? if yes, switch back toward new goal handling
+otherwise run recovery actions in sequence
+</code></pre></div>
+
+<p>This tick-level reasoning is how you debug real BT behavior.</p>
+<hr />
+<h2 id="33-why-pipelinesequence-matters">3.3 Why <code>PipelineSequence</code> Matters</h2>
+<p><code>PipelineSequence</code> is one of the most operationally important Nav2 control nodes.</p>
+<p>It supports the common requirement:</p>
+<div class="highlight"><pre><span></span><code>keep following the current path
+while occasionally computing a newer better path
+</code></pre></div>
+
+<p>Without this, you tend to get one of two bad extremes:</p>
+<ul>
+<li>expensive replanning too often and destabilizing execution</li>
+<li>no replanning while the world changes around the robot</li>
+</ul>
+<p>For warehouse AMRs in dynamic aisles, replanning cadence is a real throughput and stability decision.</p>
+<hr />
+<h2 id="part-4-customization-boundaries">PART 4 — CUSTOMIZATION BOUNDARIES</h2>
+<hr />
+<h2 id="41-when-bt-customization-is-the-right-tool">4.1 When BT Customization Is the Right Tool</h2>
+<p>Customize the BT when the problem is about <strong>policy</strong>.</p>
+<p>Examples:</p>
+<ul>
+<li>change recovery ordering for blocked aisles</li>
+<li>insert a condition that reacts differently near docking zones</li>
+<li>gate certain recoveries when humans are nearby</li>
+<li>replan more or less aggressively under dynamic obstruction</li>
+</ul>
+<p>Do <strong>not</strong> reach for BT XML first when the real issue is:</p>
+<ul>
+<li>planner algorithm mismatch</li>
+<li>bad controller tuning</li>
+<li>stale costmap observations</li>
+<li>localization drift</li>
+</ul>
+<p>That is the line between policy and mechanism.</p>
+<hr />
+<h2 id="42-a-good-customization-example">4.2 A Good Customization Example</h2>
+<p>Suppose your AMR operates in narrow one-way aisles where backing up is preferable to spinning because spinning increases footprint conflict with pallet edges.</p>
+<p>A policy adjustment might be:</p>
+<ol>
+<li>clear local costmap</li>
+<li>wait briefly for human traffic to pass</li>
+<li>back up a small distance</li>
+<li>only then spin if necessary</li>
+</ol>
+<p>That is a BT concern because you are changing <em>what the robot tries next</em>.</p>
+<hr />
+<h2 id="43-a-bad-customization-example">4.3 A Bad Customization Example</h2>
+<p>Suppose the local costmap keeps retaining stale obstacles because sensor clearing settings are wrong.</p>
+<p>Replacing the recovery subtree to clear costmaps more often may reduce symptoms, but it does not fix the cause. That is a costmap or perception integration problem.</p>
+<p>Overusing BT customization to mask upstream faults produces brittle navigation behavior.</p>
+<hr />
+<h2 id="part-5-bt-node-behavior-that-matters-in-production">PART 5 — BT NODE BEHAVIOR THAT MATTERS IN PRODUCTION</h2>
+<hr />
+<h2 id="51-goalupdated">5.1 <code>GoalUpdated</code></h2>
+<p>This condition is crucial for systems with frequent rerouting.</p>
+<p>It allows the tree to say, effectively:</p>
+<div class="highlight"><pre><span></span><code>if a new goal arrived, stop spending time on the current recovery path
+and switch focus to the latest task intent
+</code></pre></div>
+
+<p>Without this kind of condition, the robot can keep executing outdated recovery logic after the mission layer already changed priorities.</p>
+<hr />
+<h2 id="52-clearentirecostmap">5.2 <code>ClearEntireCostmap</code></h2>
+<p>Useful when the world model may contain stale or bad obstacle information.</p>
+<p>Dangerous when abused, because repeated clearing can:</p>
+<ul>
+<li>hide real obstacles transiently</li>
+<li>produce unstable behavior in cluttered environments</li>
+<li>turn systematic observation issues into recurring temporary relief</li>
+</ul>
+<p>Use it as a recovery tool, not as the main operating mode.</p>
+<hr />
+<h2 id="53-wait-spin-backup">5.3 <code>Wait</code>, <code>Spin</code>, <code>BackUp</code></h2>
+<p>These are not morally equal options. They embody different assumptions.</p>
+<table>
+<thead>
+<tr>
+<th>Recovery</th>
+<th>Good for</th>
+<th>Risk</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Wait</code></td>
+<td>temporary human blockage, aisle crossing traffic</td>
+<td>throughput loss if used too often</td>
+</tr>
+<tr>
+<td><code>Spin</code></td>
+<td>improving sensor coverage, breaking local minima in open space</td>
+<td>poor choice in tight racks or near protrusions</td>
+</tr>
+<tr>
+<td><code>BackUp</code></td>
+<td>freeing local controller in front-obstructed spaces</td>
+<td>unsafe if rear space assumptions are wrong</td>
+</tr>
+</tbody>
+</table>
+<p>Recovery order should match operating geometry, safety constraints, and product behavior.</p>
+<hr />
+<h2 id="part-6-warehouse-and-amr-failure-modes">PART 6 — WAREHOUSE AND AMR FAILURE MODES</h2>
+<hr />
+<h2 id="61-the-infinite-courtesy-problem">6.1 The Infinite Courtesy Problem</h2>
+<p>Robot waits politely for transient obstruction, then replans, then waits again, then replans forever. No single step is irrational, but the total policy is operationally bad.</p>
+<p>This is a BT design issue when the tree lacks escalation logic.</p>
+<p>Possible fixes:</p>
+<ul>
+<li>cap retry count lower in congested zones</li>
+<li>escalate sooner to mission/fleet layer</li>
+<li>distinguish temporary aisle occupancy from hard blockage</li>
+</ul>
+<hr />
+<h2 id="62-the-recovery-pinball-problem">6.2 The Recovery Pinball Problem</h2>
+<p>Robot alternates between spin and back-up without meaningfully changing conditions.</p>
+<p>This often means:</p>
+<ul>
+<li>recovery order is not environment-appropriate</li>
+<li>local costmap keeps reconstructing the same obstacle field</li>
+<li>planner keeps returning equivalent paths into the same failure mode</li>
+</ul>
+<p>The BT is where the visible loop lives, even if root cause is partly elsewhere.</p>
+<hr />
+<h2 id="63-the-wrong-layer-fix">6.3 The Wrong Layer Fix</h2>
+<p>Teams often respond to repeated BT failure by tuning controller parameters or swapping planners. Sometimes that helps. Often it just moves the symptom.</p>
+<p>The discipline is to ask:</p>
+<div class="highlight"><pre><span></span><code>Is this failure about navigation policy,
+world model correctness,
+or execution mechanics?
+</code></pre></div>
+
+<p>Only the first category belongs primarily in BT XML.</p>
+<hr />
+<h2 id="part-7-how-to-review-a-bt-change">PART 7 — HOW TO REVIEW A BT CHANGE</h2>
+<hr />
+<h2 id="71-review-checklist">7.1 Review Checklist</h2>
+<ul>
+<li>What exact failure mode is this tree change meant to address?</li>
+<li>Is the change policy-level rather than costmap/controller/localization-level?</li>
+<li>What blackboard keys are read and written?</li>
+<li>What happens on repeated failure? Is there a real bound?</li>
+<li>What happens when a new goal arrives mid-recovery?</li>
+<li>Does this change improve field behavior for the AMR environment, not just simulation demos?</li>
+</ul>
+<hr />
+<h2 id="72-what-you-should-be-able-to-explain-after-this-lesson">7.2 What You Should Be Able to Explain After This Lesson</h2>
+<p>You should now be able to explain:</p>
+<ol>
+<li>what <code>bt_navigator</code> is responsible for</li>
+<li>how BT nodes, return states, and blackboard values work together</li>
+<li>why <code>PipelineSequence</code> and <code>RateController</code> are central to Nav2 behavior</li>
+<li>when BT XML is the right place to change behavior</li>
+<li>how recovery ordering should reflect AMR operating conditions</li>
+</ol>
+<hr />
+<h2 id="73-next-step">7.3 Next Step</h2>
+<p>Continue to <a href="04-nav2-costmaps-and-layers.html">04 — Nav2 Costmaps And Layers</a>.</p>
+<p>That lesson covers the shared world model beneath planning, control, and many BT recovery outcomes.</p>
+            </div>
+        </div>
+
+        <footer class="text-center mt-16 py-6 border-t border-gray-300">
+            <p class="text-gray-500">Robotics Learning Resources</p>
+        </footer>
+    </div>
+</body>
+</html>

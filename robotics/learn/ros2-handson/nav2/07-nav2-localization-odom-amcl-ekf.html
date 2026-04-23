@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>07 — Nav2 Localization, `odom`, AMCL, and EKF - Learning From Building Systems</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .card {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        /* Markdown content styling */
+        .md-content h1 { font-size: 2rem; font-weight: 700; color: #111827; margin-top: 2rem; margin-bottom: 1rem; }
+        .md-content h2 { font-size: 1.5rem; font-weight: 600; color: #1f2937; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; }
+        .md-content h3 { font-size: 1.25rem; font-weight: 600; color: #374151; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+        .md-content h4 { font-size: 1.1rem; font-weight: 600; color: #4b5563; margin-top: 1.25rem; margin-bottom: 0.5rem; }
+        .md-content p { margin-bottom: 1rem; line-height: 1.75; color: #374151; }
+        .md-content ul { list-style: disc; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content ol { list-style: decimal; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content li { margin-bottom: 0.35rem; line-height: 1.6; }
+        .md-content code {
+            background-color: #f3f4f6; padding: 0.15rem 0.4rem; border-radius: 0.25rem;
+            font-size: 0.875rem; font-family: 'Fira Code', 'Courier New', monospace; color: #be185d;
+        }
+        .md-content pre {
+            background-color: #1f2937; color: #e5e7eb; padding: 1rem; border-radius: 0.5rem;
+            overflow-x: auto; margin-bottom: 1.25rem; font-size: 0.85rem; line-height: 1.6;
+        }
+        .md-content pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+        .md-content blockquote {
+            border-left: 4px solid #6366f1; background: #eef2ff; padding: 0.75rem 1rem;
+            margin-bottom: 1rem; border-radius: 0 0.5rem 0.5rem 0; color: #374151;
+        }
+        .md-content table { width: 100%; border-collapse: collapse; margin-bottom: 1.25rem; }
+        .md-content th { background: #f9fafb; padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; text-align: left; font-weight: 600; font-size: 0.875rem; }
+        .md-content td { padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; font-size: 0.875rem; }
+        .md-content tr:hover { background-color: #f9fafb; }
+        .md-content hr { border: 0; border-top: 1px solid #e5e7eb; margin: 1.5rem 0; }
+        .md-content strong { font-weight: 600; }
+        .md-content a { color: #2563eb; text-decoration: underline; }
+        .md-content a:hover { color: #1d4ed8; }
+        .md-content img { max-width: 100%; border-radius: 0.5rem; margin: 1rem 0; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-4xl">
+        <a href="index.html" class="text-violet-600 hover:text-violet-800 mb-4 inline-block">&larr; Back to Nav2</a>
+
+        <div class="bg-white rounded-xl shadow-md p-6 sm:p-8 md:p-10">
+            <div class="md-content">
+<h1 id="07-nav2-localization-odom-amcl-and-ekf">07 — Nav2 Localization, <code>odom</code>, AMCL, and EKF</h1>
+<h2 id="the-frame-contracts-estimator-boundaries-and-timing-rules-nav2-depends-on-in-production-amrs">The frame contracts, estimator boundaries, and timing rules Nav2 depends on in production AMRs</h2>
+<p><strong>Prerequisite:</strong> <a href="06-nav2-local-control-and-cmdvel.html">06 — Nav2 Local Control And Cmdvel</a>, <a href="02-nav2-bringup-lifecycle-actions.html">02 — Nav2 Bringup Lifecycle Actions</a>, <a href="01-nav2-system-architecture.html">01 — Nav2 System Architecture</a>
+<strong>Unlocks:</strong> Faster TF diagnosis, cleaner localization architecture choices, fewer fake planner/controller investigations, better AMR incident triage under drift and jump conditions</p>
+<hr />
+<h2 id="why-should-i-care-context">Why Should I Care? (Context)</h2>
+<p>Many Nav2 incidents are blamed on the wrong layer because localization defects surface as navigation symptoms:</p>
+<ol>
+<li>planner says no path because the robot pose is slightly inside an obstacle</li>
+<li>controller oscillates because heading estimate jitters</li>
+<li>costmaps smear observations because transform timing is stale</li>
+<li>the robot looks fine in <code>odom</code> but is globally wrong in <code>map</code></li>
+<li>AMCL jumps and the team calls it a controller failure</li>
+</ol>
+<p>Nav2 does not create localization truth. It consumes the transform and pose contracts you provide.</p>
+<p>If those contracts are vague, duplicated, or time-incoherent, the whole navigation stack becomes noisy in ways that look unrelated.</p>
+<hr />
+<h2 id="part-1-the-frame-contracts-nav2-expects">PART 1 — THE FRAME CONTRACTS NAV2 EXPECTS</h2>
+<hr />
+<h2 id="11-the-core-chain">1.1 The Core Chain</h2>
+<p>The usual contract is:</p>
+<div class="highlight"><pre><span></span><code>map -&gt; odom -&gt; base_link -&gt; sensor frames
+</code></pre></div>
+
+<p>Nav2 depends on each link meaning something specific.</p>
+<table>
+<thead>
+<tr>
+<th>Frame</th>
+<th>Meaning</th>
+<th>What should be true</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>map</code></td>
+<td>globally anchored world frame</td>
+<td>stable against the map or global reference</td>
+</tr>
+<tr>
+<td><code>odom</code></td>
+<td>locally smooth motion frame</td>
+<td>continuous, drift allowed, no sudden jumps</td>
+</tr>
+<tr>
+<td><code>base_link</code></td>
+<td>robot body frame</td>
+<td>immediate pose of the robot body</td>
+</tr>
+</tbody>
+</table>
+<p>If your system uses those names but not those meanings, debugging becomes much harder than it should be.</p>
+<hr />
+<h2 id="12-why-map-and-odom-must-stay-distinct">1.2 Why <code>map</code> and <code>odom</code> Must Stay Distinct</h2>
+<p><code>map</code> and <code>odom</code> solve different problems.</p>
+<p><code>odom</code> should be smooth enough for control.
+<code>map</code> should be globally corrected enough for navigation over the environment.</p>
+<p>That means:</p>
+<ul>
+<li><code>odom</code> may drift gradually without breaking local control immediately</li>
+<li><code>map</code> may jump slightly when localization corrects global error</li>
+<li>controllers care most about smooth local consistency</li>
+<li>planners and global costmaps care about global correctness</li>
+</ul>
+<p>When teams collapse these concepts into one frame, they usually trade away either control stability or global correctness.</p>
+<hr />
+<h2 id="13-the-usual-publisher-responsibilities">1.3 The Usual Publisher Responsibilities</h2>
+<p>Common AMR arrangement:</p>
+<div class="highlight"><pre><span></span><code>wheel odom + IMU + maybe other local sensors
+    -&gt; robot_localization EKF
+    -&gt; publishes odom -&gt; base_link
+
+AMCL on static map
+    -&gt; publishes map -&gt; odom
+</code></pre></div>
+
+<p>This is not the only legal architecture, but it is common because it preserves the separation between local smoothness and global correction.</p>
+<hr />
+<h2 id="part-2-odometry-imu-ekf-and-amcl-roles">PART 2 — ODOMETRY, IMU, EKF, AND AMCL ROLES</h2>
+<hr />
+<h2 id="21-wheel-odometry">2.1 Wheel Odometry</h2>
+<p>Wheel odometry provides short-horizon motion continuity.</p>
+<p>Strengths:</p>
+<ul>
+<li>high-rate local motion estimate</li>
+<li>good short-term smoothness</li>
+<li>essential for local control continuity</li>
+</ul>
+<p>Weaknesses:</p>
+<ul>
+<li>drift accumulates</li>
+<li>slip and floor conditions corrupt it badly</li>
+<li>global truth is absent</li>
+</ul>
+<p>Nav2 can operate with wheel odometry for local behavior, but not reliably for global map navigation on a production AMR without some form of global correction.</p>
+<hr />
+<h2 id="22-imu">2.2 IMU</h2>
+<p>IMU mainly helps stabilize rotational estimation and short-term motion dynamics.</p>
+<p>Useful contributions:</p>
+<ul>
+<li>better heading continuity</li>
+<li>less dependence on wheel-only yaw inference</li>
+<li>improved local estimator robustness during acceleration or mild slip</li>
+</ul>
+<p>Common mistakes:</p>
+<ul>
+<li>fusing low-quality IMU orientation without understanding bias and mounting</li>
+<li>assuming IMU makes global localization accurate</li>
+<li>ignoring timestamp quality and then blaming Nav2 for TF lag</li>
+</ul>
+<p>IMU improves local estimation. It does not replace a global localization source.</p>
+<hr />
+<h2 id="23-robot_localization-ekf-or-ukf">2.3 <code>robot_localization</code> EKF or UKF</h2>
+<p><code>robot_localization</code> usually owns the local fused estimate.</p>
+<p>Typical responsibilities:</p>
+<ul>
+<li>combine wheel odometry and IMU</li>
+<li>provide a smooth <code>odom -&gt; base_link</code> transform</li>
+<li>publish consistent velocity and pose estimates for downstream consumption</li>
+</ul>
+<p>What it should not do casually:</p>
+<ul>
+<li>compete with another node for the same TF edge</li>
+<li>publish a globally corrected frame without the team understanding the consequences</li>
+</ul>
+<p>Duplicate TF publishers are one of the fastest ways to create non-repeatable Nav2 behavior.</p>
+<hr />
+<h2 id="24-amcl">2.4 AMCL</h2>
+<p>AMCL usually owns the global correction against a known 2D map.</p>
+<p>It answers:</p>
+<div class="highlight"><pre><span></span><code>where is the robot in the map, given sensor observations and a prior pose estimate?
+</code></pre></div>
+
+<p>Operationally, AMCL should correct global drift while preserving the local smoothness contract through the <code>map -&gt; odom</code> edge.</p>
+<p>If AMCL is unstable, Nav2 may:</p>
+<ul>
+<li>replan from implausible starts</li>
+<li>see goals or obstacles in the wrong place</li>
+<li>trigger recoveries that look irrational</li>
+</ul>
+<hr />
+<h2 id="part-3-what-nav2-needs-from-localization">PART 3 — WHAT NAV2 NEEDS FROM LOCALIZATION</h2>
+<hr />
+<h2 id="31-correctness-first-smoothness-second-but-both-matter">3.1 Correctness First, Smoothness Second, but Both Matter</h2>
+<p>Nav2 needs both:</p>
+<ul>
+<li>global enough correctness to make map-level planning meaningful</li>
+<li>local enough smoothness to make controller behavior stable</li>
+</ul>
+<p>If global correctness is missing, the planner lies.
+If smoothness is missing, the controller panics.</p>
+<p>That is why <code>map</code> and <code>odom</code> must cooperate instead of competing.</p>
+<hr />
+<h2 id="32-transform-availability-and-timing">3.2 Transform Availability and Timing</h2>
+<p>A transform that exists eventually is not good enough.</p>
+<p>Nav2 needs transforms that are:</p>
+<ul>
+<li>available when requested</li>
+<li>stamped consistently with sensor and costmap data</li>
+<li>recent enough for the configured tolerances</li>
+</ul>
+<p>If transform timing is poor, you will see symptoms such as:</p>
+<ul>
+<li>costmap update warnings</li>
+<li>controller lookup failures</li>
+<li>delayed obstacle insertion</li>
+<li>intermittent planner or behavior failures</li>
+</ul>
+<p>This often looks random because the data is present, just not aligned in time.</p>
+<hr />
+<h2 id="33-covariance-still-matters-indirectly">3.3 Covariance Still Matters Indirectly</h2>
+<p>Nav2 does not reason about covariance in the same deep way a localization stack does, but covariance quality still matters because it signals whether pose confidence is believable.</p>
+<p>When localization becomes noisy or unstable, downstream effects often include:</p>
+<ul>
+<li>twitchy goal convergence</li>
+<li>inconsistent path tracking</li>
+<li>recovery loops after apparent near-success</li>
+</ul>
+<p>A pose that is smooth but wrong is often more dangerous operationally than one that is obviously broken.</p>
+<hr />
+<h2 id="part-4-failure-patterns-that-masquerade-as-nav2-problems">PART 4 — FAILURE PATTERNS THAT MASQUERADE AS NAV2 PROBLEMS</h2>
+<hr />
+<h2 id="41-odom-is-smooth-but-globally-wrong">4.1 <code>odom</code> Is Smooth but Globally Wrong</h2>
+<p>This is a classic warehouse failure mode.</p>
+<p>Symptoms:</p>
+<ul>
+<li>local controller looks stable</li>
+<li>global planner routes around obstacles that are not really where the robot is</li>
+<li>robot appears shifted relative to racks or lanes</li>
+<li>docking approaches miss consistently by a fixed bias</li>
+</ul>
+<p>Typical causes:</p>
+<ul>
+<li>AMCL not correcting enough</li>
+<li>poor initial pose or relocalization handling</li>
+<li>map mismatch versus environment reality</li>
+</ul>
+<p>This is not a controller-tuning issue.</p>
+<hr />
+<h2 id="42-map-odom-jumps">4.2 <code>map -&gt; odom</code> Jumps</h2>
+<p>Sudden AMCL correction or unstable global localization can create jumps.</p>
+<p>Downstream symptoms:</p>
+<ul>
+<li>path appears to move under the robot</li>
+<li>controller issues abrupt corrections</li>
+<li>costmap alignment looks momentarily wrong</li>
+<li>operators say the robot &ldquo;twitched&rdquo; or &ldquo;teleported&rdquo; in RViz</li>
+</ul>
+<p>If jumps are frequent, first diagnose localization stability and observation quality before touching controller settings.</p>
+<hr />
+<h2 id="43-wrong-frame-ids-or-duplicate-publishers">4.3 Wrong Frame IDs or Duplicate Publishers</h2>
+<p>Two common integration bugs:</p>
+<ol>
+<li>the right data is published under the wrong frame name</li>
+<li>two different nodes publish the same TF edge</li>
+</ol>
+<p>Consequences include:</p>
+<ul>
+<li>intermittent transform tree inconsistency</li>
+<li>behavior that changes between launches</li>
+<li>costmap insertion in the wrong place</li>
+<li>impossible-to-reproduce planner or controller failures</li>
+</ul>
+<p>If the same run behaves differently after restart, inspect TF ownership immediately.</p>
+<hr />
+<h2 id="44-timestamp-drift-and-stale-tf">4.4 Timestamp Drift and Stale TF</h2>
+<p>Transforms can be logically correct and still operationally unusable.</p>
+<p>Watch for:</p>
+<ul>
+<li>sensor timestamps from unsynchronized clocks</li>
+<li>delayed odometry publication</li>
+<li>transform tolerances too strict for actual latency</li>
+<li>simulated time misconfiguration</li>
+</ul>
+<p>The controller and costmaps are especially sensitive to this because they run continuously and expect recent transforms.</p>
+<hr />
+<h2 id="part-5-amcl-vs-ekf-what-problem-each-one-solves">PART 5 — AMCL VS EKF: WHAT PROBLEM EACH ONE SOLVES</h2>
+<hr />
+<h2 id="51-amcl-does-not-replace-the-local-estimator">5.1 AMCL Does Not Replace the Local Estimator</h2>
+<p>AMCL is not your main short-horizon motion estimator.</p>
+<p>It is a global localization component against a map.</p>
+<p>If you try to treat AMCL as the whole localization stack for a production AMR without understanding the smoothness implications, local control quality usually suffers.</p>
+<hr />
+<h2 id="52-ekf-does-not-replace-global-localization">5.2 EKF Does Not Replace Global Localization</h2>
+<p>A local EKF can be beautifully smooth and still wrong over time.</p>
+<p>That means:</p>
+<ul>
+<li>aisle tracking can look fine for a while</li>
+<li>docking offset can grow slowly</li>
+<li>planner start pose can drift relative to map obstacles</li>
+</ul>
+<p>This is why AMCL plus local filtering is such a common pairing.</p>
+<hr />
+<h2 id="53-selection-checklist">5.3 Selection Checklist</h2>
+<p>Use a local fusion source such as <code>robot_localization</code> when:</p>
+<ul>
+<li>you need smooth <code>odom -&gt; base_link</code></li>
+<li>wheel odometry alone is not stable enough</li>
+<li>IMU helps rotational continuity materially</li>
+</ul>
+<p>Use AMCL when:</p>
+<ul>
+<li>you have a trustworthy static map</li>
+<li>lidar or matching observations support 2D global localization</li>
+<li>global drift matters for missions, docking, and route reliability</li>
+</ul>
+<p>If you do not have a good map-matching story, do not pretend Nav2 will make one up.</p>
+<hr />
+<h2 id="part-6-a-field-diagnostic-flow-for-localization-contracts">PART 6 — A FIELD DIAGNOSTIC FLOW FOR LOCALIZATION CONTRACTS</h2>
+<hr />
+<h2 id="61-start-with-tf-semantics-not-with-parameters">6.1 Start With TF Semantics, Not With Parameters</h2>
+<p>When Nav2 looks confused, verify:</p>
+<ol>
+<li>who publishes <code>odom -&gt; base_link</code></li>
+<li>who publishes <code>map -&gt; odom</code></li>
+<li>whether those publishers are unique and intentional</li>
+<li>whether timestamps are recent and coherent</li>
+<li>whether the pose makes physical sense in RViz on the map</li>
+</ol>
+<p>This is faster than reading parameter files blindly.</p>
+<hr />
+<h2 id="62-then-separate-global-and-local-symptoms">6.2 Then Separate Global and Local Symptoms</h2>
+<p>Ask two questions:</p>
+<div class="highlight"><pre><span></span><code>Is local motion tracking smooth?
+Is global map alignment correct?
+</code></pre></div>
+
+<p>That gives you a quick classification:</p>
+<table>
+<thead>
+<tr>
+<th>Local smoothness</th>
+<th>Global correctness</th>
+<th>Likely issue</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>good</td>
+<td>bad</td>
+<td>AMCL or map alignment problem</td>
+</tr>
+<tr>
+<td>bad</td>
+<td>good</td>
+<td>local estimator, IMU, or timing problem</td>
+</tr>
+<tr>
+<td>bad</td>
+<td>bad</td>
+<td>broader localization or TF integration failure</td>
+</tr>
+</tbody>
+</table>
+<p>This table is far more useful in incidents than memorizing package names.</p>
+<hr />
+<h2 id="63-only-then-revisit-planner-or-controller-complaints">6.3 Only Then Revisit Planner or Controller Complaints</h2>
+<p>If localization contracts are bad, planner and controller complaints are downstream artifacts.</p>
+<p>Do not tune around them.</p>
+<p>Examples of bad compensations:</p>
+<ul>
+<li>inflating goal tolerances to hide pose jitter</li>
+<li>weakening obstacle logic to hide map misalignment</li>
+<li>changing controller aggressiveness to mask stale transforms</li>
+</ul>
+<p>Those changes usually create new failures elsewhere.</p>
+<hr />
+<h2 id="part-7-amr-specific-decisions-and-failure-checklists">PART 7 — AMR-SPECIFIC DECISIONS AND FAILURE CHECKLISTS</h2>
+<hr />
+<h2 id="71-practical-rules-for-warehouse-amrs">7.1 Practical Rules for Warehouse AMRs</h2>
+<ol>
+<li>keep <code>odom -&gt; base_link</code> smooth enough for control even when global localization is imperfect</li>
+<li>keep <code>map -&gt; odom</code> globally meaningful even if it corrects drift slowly</li>
+<li>never allow ambiguous TF ownership</li>
+<li>validate time synchronization before blaming Nav2</li>
+<li>test docking and narrow-aisle behavior after any localization change, not just open-space navigation</li>
+</ol>
+<hr />
+<h2 id="72-fast-failure-checklist">7.2 Fast Failure Checklist</h2>
+<p>If the robot replans forever:</p>
+<ul>
+<li>check <code>map</code> alignment first</li>
+</ul>
+<p>If the robot oscillates near the goal:</p>
+<ul>
+<li>check heading stability and transform freshness first</li>
+</ul>
+<p>If the robot cannot pass a corridor that looks open:</p>
+<ul>
+<li>check whether the start pose and obstacle positions are globally aligned first</li>
+</ul>
+<p>If RViz looks different every launch:</p>
+<ul>
+<li>check TF publishers first</li>
+</ul>
+<hr />
+<h2 id="73-senior-interview-version">7.3 Senior Interview Version</h2>
+<p>A strong answer explains why:</p>
+<ul>
+<li><code>odom</code> must be smooth</li>
+<li><code>map</code> must be globally meaningful</li>
+<li>AMCL and EKF solve different problems</li>
+<li>duplicate TF publishers are catastrophic</li>
+<li>stale transform timing can look like planner or controller instability</li>
+</ul>
+<p>If you can explain those cleanly, you understand the real Nav2 localization contract.</p>
+<hr />
+<h2 id="next-lesson">Next Lesson</h2>
+<p>Continue to <a href="08-nav2-recoveries-progress-and-goal-checkers.html">08 — Nav2 Recoveries Progress And Goal Checkers</a>.
+That lesson turns controller and localization failure symptoms into explicit retry, recovery, and escalation policy for production AMRs.</p>
+            </div>
+        </div>
+
+        <footer class="text-center mt-16 py-6 border-t border-gray-300">
+            <p class="text-gray-500">Robotics Learning Resources</p>
+        </footer>
+    </div>
+</body>
+</html>

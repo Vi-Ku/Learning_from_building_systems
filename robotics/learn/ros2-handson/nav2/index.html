@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nav2 For AMRs - Learning From Building Systems</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .card {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8">
+        <a href="../index.html" class="text-violet-600 hover:text-violet-800 mb-4 inline-block">&larr; Back to ROS 2</a>
+
+        <header class="text-center mb-12">
+            <h1 class="text-4xl md:text-5xl font-bold text-gray-900">Nav2 for AMRs</h1>
+            <p class="mt-4 text-lg text-gray-600 max-w-4xl mx-auto">A full-depth ROS 2 navigation track for AMR ownership: architecture, costmaps, planning, control, localization contracts, recoveries, mission semantics, debugging, and senior interview preparation.</p>
+        </header>
+
+        <section class="bg-white rounded-xl shadow-md p-6 sm:p-8 mb-10">
+            <div class="grid md:grid-cols-3 gap-6">
+                <div>
+                    <h2 class="text-xl font-semibold text-gray-900 mb-2">Track Scope</h2>
+                    <p class="text-gray-600">13 lessons and 10 exercises built around production-grade Nav2 work for warehouse and factory AMRs.</p>
+                </div>
+                <div>
+                    <h2 class="text-xl font-semibold text-gray-900 mb-2">Recommended Pace</h2>
+                    <p class="text-gray-600">8 to 10 weeks at 4 to 6 hours per week, mixing reading, log analysis, bag replay, and design-review style labs.</p>
+                </div>
+                <div>
+                    <h2 class="text-xl font-semibold text-gray-900 mb-2">Start Here</h2>
+                    <p class="text-gray-600">If you already finished the base ROS 2 track, open the roadmap first, then move into lesson 01 and the first lifecycle lab.</p>
+                </div>
+            </div>
+        </section>
+
+        <main class="space-y-12">
+            <section>
+                <h2 class="text-2xl font-bold text-gray-900 mb-4">Track Guide</h2>
+                <div class="grid md:grid-cols-2 gap-6">
+                    <a href="00-learning-plan.html" class="card block p-6">
+                        <h3 class="font-bold text-xl mb-2 text-violet-700">00 - Mastery Plan</h3>
+                        <p class="text-gray-600">Roadmap, pacing, outcomes, module order, interview categories, and how the lesson-plus-lab sequence fits together.</p>
+                    </a>
+                    <a href="01-nav2-system-architecture.html" class="card block p-6">
+                        <h3 class="font-bold text-xl mb-2 text-violet-700">Start with Lesson 01</h3>
+                        <p class="text-gray-600">Begin the deep track with system boundaries, server ownership, lifecycle manager, and full goal-flow reasoning.</p>
+                    </a>
+                </div>
+            </section>
+
+            <section>
+                <h2 class="text-2xl font-bold text-gray-900 mb-4">Lessons</h2>
+                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <a href="01-nav2-system-architecture.html" class="card block p-6"><h3 class="font-bold text-xl mb-2 text-violet-700">01 - System Architecture</h3><p class="text-gray-600">Runtime boundaries, server roles, contracts, and end-to-end goal flow.</p></a>
+                    <a href="02-nav2-bringup-lifecycle-actions.html" class="card block p-6"><h3 class="font-bold text-xl mb-2 text-violet-700">02 - Bringup, Lifecycle, Actions</h3><p class="text-gray-600">Startup sequencing, lifecycle state transitions, action contracts, and failure patterns at bringup time.</p></a>
+                    <a href="03-nav2-bt-navigator-and-bt-xml.html" class="card block p-6"><h3 class="font-bold text-xl mb-2 text-violet-700">03 - BT Navigator and XML</h3><p class="text-gray-600">BehaviorTree flow, blackboard reasoning, replanning cadence, and recovery design.</p></a>
+                    <a href="04-nav2-costmaps-and-layers.html" class="card block p-6"><h3 class="font-bold text-xl mb-2 text-violet-700">04 - Costmaps and Layers</h3><p class="text-gray-600">Global and local costmaps, inflation, observation layers, passability, and map semantics.</p></a>
+                    <a href="05-nav2-global-planning.html" class="card block p-6"><h3 class="font-bold text-xl mb-2 text-violet-700">05 - Global Planning</h3><p class="text-gray-600">Planner tradeoffs, path quality, compute budgets, and warehouse route selection.</p></a>
+                    <a href="06-nav2-local-control-and-cmdvel.html" class="card block p-6"><h3 class="font-bold text-xl mb-2 text-violet-700">06 - Local Control and Cmd Vel</h3><p class="text-gray-600">Controller plugins, velocity shaping, motion quality, and downstream command-path reasoning.</p></a>
+                    <a href="07-nav2-localization-odom-amcl-ekf.html" class="card block p-6"><h3 class="font-bold text-xl mb-2 text-violet-700">07 - Localization, Odom, AMCL, EKF</h3><p class="text-gray-600">The map-odom-base link contract, TF correctness, and localization-driven Nav2 failures.</p></a>
+                    <a href="08-nav2-recoveries-progress-and-goal-checkers.html" class="card block p-6"><h3 class="font-bold text-xl mb-2 text-violet-700">08 - Recoveries and Checkers</h3><p class="text-gray-600">Retry budgets, progress checking, goal checking, escalation rules, and AMR-safe recoveries.</p></a>
+                    <a href="09-nav2-waypoints-docking-zones-and-missions.html" class="card block p-6"><h3 class="font-bold text-xl mb-2 text-violet-700">09 - Waypoints, Docking, Zones, Missions</h3><p class="text-gray-600">Route execution, semantic map behavior, docking flows, and mission-layer ownership boundaries.</p></a>
+                    <a href="10-nav2-parameters-launch-and-plugin-extension.html" class="card block p-6"><h3 class="font-bold text-xl mb-2 text-violet-700">10 - Parameters, Launch, Plugins</h3><p class="text-gray-600">Configuration layering, launch decomposition, and when extension work is actually justified.</p></a>
+                    <a href="11-nav2-debugging-observability-and-bag-analysis.html" class="card block p-6"><h3 class="font-bold text-xl mb-2 text-violet-700">11 - Debugging and Bag Analysis</h3><p class="text-gray-600">Structured incident triage across logs, topics, TF, costmaps, actions, and bag replay.</p></a>
+                    <a href="12-nav2-amr-failure-patterns-and-capstone.html" class="card block p-6"><h3 class="font-bold text-xl mb-2 text-violet-700">12 - AMR Failure Patterns and Capstone</h3><p class="text-gray-600">Recurring warehouse failure modes plus a capstone root-cause-analysis framework.</p></a>
+                    <a href="13-nav2-senior-interview-questions.html" class="card block p-6"><h3 class="font-bold text-xl mb-2 text-violet-700">13 - Senior Interview Questions</h3><p class="text-gray-600">A categorized senior-level interview bank with answer guidance focused on judgment and ownership.</p></a>
+                </div>
+            </section>
+
+            <section>
+                <h2 class="text-2xl font-bold text-gray-900 mb-4">Exercises</h2>
+                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <a href="exercises/01-bringup-and-lifecycle.html" class="card block p-6"><h3 class="font-bold text-xl mb-2 text-violet-700">Exercise 01 - Bringup and Lifecycle</h3><p class="text-gray-600">Validate activation order, lifecycle state, readiness checks, and startup health versus runtime health.</p></a>
+                    <a href="exercises/02-bt-trace-and-recovery-loop.html" class="card block p-6"><h3 class="font-bold text-xl mb-2 text-violet-700">Exercise 02 - BT Trace and Recovery Loop</h3><p class="text-gray-600">Read BT traces, distinguish symptoms from causes, and critique recovery ordering with AMR constraints.</p></a>
+                    <a href="exercises/03-costmap-tuning-lab.html" class="card block p-6"><h3 class="font-bold text-xl mb-2 text-violet-700">Exercise 03 - Costmap Tuning Lab</h3><p class="text-gray-600">Reason about inflation, obstacle freshness, passability, and local-versus-global tuning tradeoffs.</p></a>
+                    <a href="exercises/04-planner-comparison-lab.html" class="card block p-6"><h3 class="font-bold text-xl mb-2 text-violet-700">Exercise 04 - Planner Comparison Lab</h3><p class="text-gray-600">Compare planner outputs, path quality, and AMR-specific route-selection tradeoffs.</p></a>
+                    <a href="exercises/05-controller-tuning-lab.html" class="card block p-6"><h3 class="font-bold text-xl mb-2 text-violet-700">Exercise 05 - Controller Tuning Lab</h3><p class="text-gray-600">Investigate motion quality, controller plugin behavior, and command-path versus controller faults.</p></a>
+                    <a href="exercises/06-localization-contract-diagnosis.html" class="card block p-6"><h3 class="font-bold text-xl mb-2 text-violet-700">Exercise 06 - Localization Contract Diagnosis</h3><p class="text-gray-600">Classify drift, jumps, stale TF, and low-confidence localization before blaming planning or control.</p></a>
+                    <a href="exercises/07-recovery-policy-design.html" class="card block p-6"><h3 class="font-bold text-xl mb-2 text-violet-700">Exercise 07 - Recovery Policy Design</h3><p class="text-gray-600">Design recovery policies, retry budgets, and telemetry for blocked aisles and unstable world models.</p></a>
+                    <a href="exercises/08-zones-waypoints-and-missions.html" class="card block p-6"><h3 class="font-bold text-xl mb-2 text-violet-700">Exercise 08 - Zones, Waypoints, Missions</h3><p class="text-gray-600">Model semantic routes, safe waiting, docking flows, and mission-layer responsibility boundaries.</p></a>
+                    <a href="exercises/09-plugin-extension-lab.html" class="card block p-6"><h3 class="font-bold text-xl mb-2 text-violet-700">Exercise 09 - Plugin Extension Lab</h3><p class="text-gray-600">Decide when parameters and BT XML stop being enough and a plugin becomes worth the cost.</p></a>
+                    <a href="exercises/10-amr-debug-capstone.html" class="card block p-6"><h3 class="font-bold text-xl mb-2 text-violet-700">Exercise 10 - AMR Debug Capstone</h3><p class="text-gray-600">Run a full multi-signal AMR incident RCA across localization, planning, control, recoveries, and mission policy.</p></a>
+                </div>
+            </section>
+        </main>
+
+        <footer class="text-center mt-16 py-6 border-t border-gray-300">
+            <p class="text-gray-500">Robotics Learning Resources</p>
+        </footer>
+    </div>
+</body>
+</html>

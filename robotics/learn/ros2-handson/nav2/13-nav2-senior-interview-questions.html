@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>13 — Nav2 Senior Interview Questions - Learning From Building Systems</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .card {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        /* Markdown content styling */
+        .md-content h1 { font-size: 2rem; font-weight: 700; color: #111827; margin-top: 2rem; margin-bottom: 1rem; }
+        .md-content h2 { font-size: 1.5rem; font-weight: 600; color: #1f2937; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; }
+        .md-content h3 { font-size: 1.25rem; font-weight: 600; color: #374151; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+        .md-content h4 { font-size: 1.1rem; font-weight: 600; color: #4b5563; margin-top: 1.25rem; margin-bottom: 0.5rem; }
+        .md-content p { margin-bottom: 1rem; line-height: 1.75; color: #374151; }
+        .md-content ul { list-style: disc; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content ol { list-style: decimal; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content li { margin-bottom: 0.35rem; line-height: 1.6; }
+        .md-content code {
+            background-color: #f3f4f6; padding: 0.15rem 0.4rem; border-radius: 0.25rem;
+            font-size: 0.875rem; font-family: 'Fira Code', 'Courier New', monospace; color: #be185d;
+        }
+        .md-content pre {
+            background-color: #1f2937; color: #e5e7eb; padding: 1rem; border-radius: 0.5rem;
+            overflow-x: auto; margin-bottom: 1.25rem; font-size: 0.85rem; line-height: 1.6;
+        }
+        .md-content pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+        .md-content blockquote {
+            border-left: 4px solid #6366f1; background: #eef2ff; padding: 0.75rem 1rem;
+            margin-bottom: 1rem; border-radius: 0 0.5rem 0.5rem 0; color: #374151;
+        }
+        .md-content table { width: 100%; border-collapse: collapse; margin-bottom: 1.25rem; }
+        .md-content th { background: #f9fafb; padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; text-align: left; font-weight: 600; font-size: 0.875rem; }
+        .md-content td { padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; font-size: 0.875rem; }
+        .md-content tr:hover { background-color: #f9fafb; }
+        .md-content hr { border: 0; border-top: 1px solid #e5e7eb; margin: 1.5rem 0; }
+        .md-content strong { font-weight: 600; }
+        .md-content a { color: #2563eb; text-decoration: underline; }
+        .md-content a:hover { color: #1d4ed8; }
+        .md-content img { max-width: 100%; border-radius: 0.5rem; margin: 1rem 0; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-4xl">
+        <a href="index.html" class="text-violet-600 hover:text-violet-800 mb-4 inline-block">&larr; Back to Nav2</a>
+
+        <div class="bg-white rounded-xl shadow-md p-6 sm:p-8 md:p-10">
+            <div class="md-content">
+<h1 id="13-nav2-senior-interview-questions">13 — Nav2 Senior Interview Questions</h1>
+<h2 id="a-production-oriented-interview-bank-for-amr-navigation-engineers-with-answer-guidance-that-tests-systems-judgment-instead-of-memorized-ros-2-vocabulary">A production-oriented interview bank for AMR navigation engineers, with answer guidance that tests systems judgment instead of memorized ROS 2 vocabulary</h2>
+<p><strong>Prerequisite:</strong> <a href="11-nav2-debugging-observability-and-bag-analysis.html">11 — Nav2 Debugging Observability And Bag Analysis</a>, <a href="12-nav2-amr-failure-patterns-and-capstone.html">12 — Nav2 Amr Failure Patterns And Capstone</a>, <a href="01-nav2-system-architecture.html">01 — Nav2 System Architecture</a>
+<strong>Unlocks:</strong> Better self-assessment, stronger interview preparation, sharper explanations of Nav2 tradeoffs, and a clearer picture of what senior-level ownership actually sounds like</p>
+<hr />
+<h2 id="why-this-lesson-exists">Why This Lesson Exists</h2>
+<p>Many Nav2 interviews stay too shallow.</p>
+<p>They ask:</p>
+<ul>
+<li>what is a costmap?</li>
+<li>what is TF?</li>
+<li>what is AMCL?</li>
+</ul>
+<p>Those questions matter, but they do not reliably identify someone who can own an AMR navigation stack in production.</p>
+<p>Senior-level interviews should test:</p>
+<ul>
+<li>system decomposition</li>
+<li>debugging discipline</li>
+<li>tradeoff reasoning</li>
+<li>operational judgment</li>
+<li>ability to separate navigation from adjacent layers</li>
+<li>ability to explain failures precisely</li>
+</ul>
+<p>This bank is organized around those goals.</p>
+<hr />
+<h2 id="how-to-use-this-interview-bank">How to Use This Interview Bank</h2>
+<p>For each question:</p>
+<ul>
+<li>focus on structure before detail</li>
+<li>define ownership boundaries clearly</li>
+<li>use AMR-specific examples when helpful</li>
+<li>explain tradeoffs, not just the happy path</li>
+<li>mention failure modes and observability where relevant</li>
+</ul>
+<p>Strong answers do not need to be long, but they should be ordered, concrete, and defensible.</p>
+<hr />
+<h2 id="category-1-system-architecture-and-ownership">CATEGORY 1 — SYSTEM ARCHITECTURE AND OWNERSHIP</h2>
+<hr />
+<h2 id="1-walk-me-through-a-navigatetopose-request-end-to-end-in-nav2">1. Walk me through a <code>NavigateToPose</code> request end to end in Nav2</h2>
+<p><strong>What the interviewer is testing:</strong> whether you can explain the runtime flow without vague hand-waving.</p>
+<p><strong>Strong answer guidance:</strong></p>
+<ul>
+<li>start from the action client or mission layer</li>
+<li>explain <code>bt_navigator</code> as the orchestration layer</li>
+<li>describe planner, controller, behavior server, costmaps, and lifecycle manager roles</li>
+<li>explain how TF, localization, and sensor data are upstream dependencies rather than Nav2-owned internals</li>
+<li>end at <code>cmd_vel</code> generation and result reporting</li>
+</ul>
+<p><strong>What a weak answer sounds like:</strong></p>
+<ul>
+<li>listing node names without explaining interactions</li>
+<li>pretending Nav2 owns localization directly</li>
+<li>skipping BT policy and recoveries entirely</li>
+</ul>
+<hr />
+<h2 id="2-what-does-nav2-own-and-what-should-remain-outside-nav2-in-a-production-amr-stack">2. What does Nav2 own, and what should remain outside Nav2 in a production AMR stack?</h2>
+<p><strong>What the interviewer is testing:</strong> whether you can maintain clean boundaries under real product pressure.</p>
+<p><strong>Strong answer guidance:</strong></p>
+<ul>
+<li>Nav2 owns navigation orchestration, planning, local control, and bounded recovery behavior</li>
+<li>localization, perception, mission logic, fleet coordination, and docking-specific business workflows often sit adjacent to Nav2</li>
+<li>explain that some responsibilities are shared through contracts rather than hard boundaries</li>
+<li>give examples of mission-layer concerns that should not be pushed into BT XML or planner tuning</li>
+</ul>
+<p><strong>Strong signal:</strong> explicitly mention that docking, task execution, and fleet dispatch are often where ownership confusion starts.</p>
+<hr />
+<h2 id="3-when-would-you-solve-a-problem-with-parameters-behaviortree-xml-or-a-plugin">3. When would you solve a problem with parameters, BehaviorTree XML, or a plugin?</h2>
+<p><strong>What the interviewer is testing:</strong> whether you know how to choose the right layer.</p>
+<p><strong>Strong answer guidance:</strong></p>
+<ul>
+<li>parameters for tuning an already-correct mechanism</li>
+<li>BT XML for policy and sequencing changes</li>
+<li>plugin code when the mechanism itself is insufficient</li>
+<li>mention maintainability and blast radius, not just technical possibility</li>
+<li>mention testing expectations before introducing a custom plugin</li>
+</ul>
+<p><strong>Weak answer pattern:</strong> saying &ldquo;I would write a plugin&rdquo; whenever defaults are inconvenient.</p>
+<hr />
+<h2 id="category-2-localization-tf-and-world-model-contracts">CATEGORY 2 — LOCALIZATION, TF, AND WORLD MODEL CONTRACTS</h2>
+<hr />
+<h2 id="4-a-robot-keeps-reaching-near-the-goal-but-behaves-inconsistently-in-the-final-meter-how-do-you-reason-about-whether-this-is-localization-controller-tuning-or-goal-checker-configuration">4. A robot keeps reaching near the goal but behaves inconsistently in the final meter. How do you reason about whether this is localization, controller tuning, or goal-checker configuration?</h2>
+<p><strong>What the interviewer is testing:</strong> whether you can separate interacting layers instead of guessing.</p>
+<p><strong>Strong answer guidance:</strong></p>
+<ul>
+<li>begin with pose trust near the goal and compare map estimate to physical reality</li>
+<li>then inspect controller behavior and actual base response</li>
+<li>finally inspect whether goal success criteria match the operational task</li>
+<li>explain that final-meter issues are often docking-grade or staging-grade problems, not generic navigation alone</li>
+</ul>
+<p><strong>Good bonus point:</strong> mention that loosening tolerance can shift failure downstream instead of solving it.</p>
+<hr />
+<h2 id="5-what-tf-problems-commonly-masquerade-as-planner-or-controller-problems">5. What TF problems commonly masquerade as planner or controller problems?</h2>
+<p><strong>What the interviewer is testing:</strong> whether you debug upstream contracts first.</p>
+<p><strong>Strong answer guidance:</strong></p>
+<ul>
+<li>stale transforms</li>
+<li>wrong frame ownership or naming</li>
+<li>inconsistent timestamps</li>
+<li>static transform mistakes that shift perception or footprint alignment</li>
+<li>explain how these surface as bad costmaps, oscillation, or false no-path outcomes</li>
+</ul>
+<p><strong>Weak answer pattern:</strong> treating TF as setup boilerplate instead of a live runtime dependency.</p>
+<hr />
+<h2 id="6-why-can-a-planner-be-correct-when-operators-insist-the-aisle-looks-open">6. Why can a planner be correct when operators insist the aisle looks open?</h2>
+<p><strong>What the interviewer is testing:</strong> whether you understand world-model truth vs human visual intuition.</p>
+<p><strong>Strong answer guidance:</strong></p>
+<ul>
+<li>explain that planners operate on the current costmap and footprint constraints</li>
+<li>mention stale obstacles, inflation effects, unknown space, semantic overlays, and sensor frame issues</li>
+<li>emphasize that the right question is what the planner believed, not what a human remembers seeing</li>
+</ul>
+<hr />
+<h2 id="category-3-controllers-motion-quality-and-execution-reality">CATEGORY 3 — CONTROLLERS, MOTION QUALITY, AND EXECUTION REALITY</h2>
+<hr />
+<h2 id="7-a-planner-produces-good-paths-but-the-robot-oscillates-or-crawls-what-do-you-inspect-first">7. A planner produces good paths, but the robot oscillates or crawls. What do you inspect first?</h2>
+<p><strong>What the interviewer is testing:</strong> whether you can bridge software output and physical execution.</p>
+<p><strong>Strong answer guidance:</strong></p>
+<ul>
+<li>compare path geometry, controller commands, actual motion, and odometry feedback</li>
+<li>inspect progress-checker assumptions and base deadband</li>
+<li>distinguish between controller tuning issues and drivetrain execution limits</li>
+<li>mention narrow-aisle or final-approach context if relevant</li>
+</ul>
+<p><strong>Strong answer tone:</strong> methodical and comparative, not &ldquo;I would change critic weights first.&rdquo;</p>
+<hr />
+<h2 id="8-how-would-you-choose-between-dwb-and-regulated-pure-pursuit-for-an-indoor-amr">8. How would you choose between DWB and Regulated Pure Pursuit for an indoor AMR?</h2>
+<p><strong>What the interviewer is testing:</strong> whether you can reason in tradeoffs rather than brand loyalty.</p>
+<p><strong>Strong answer guidance:</strong></p>
+<ul>
+<li>discuss path tracking style, smoothness, compute needs, geometry, and operational constraints</li>
+<li>mention how aisle width, desired motion behavior, and robot kinematics influence the choice</li>
+<li>state that controller choice should be validated against real site geometry and task patterns</li>
+</ul>
+<p><strong>Weak answer pattern:</strong> presenting one controller as universally best.</p>
+<hr />
+<h2 id="9-why-can-cmd_vel-presence-still-be-consistent-with-a-navigation-failure">9. Why can <code>cmd_vel</code> presence still be consistent with a navigation failure?</h2>
+<p><strong>What the interviewer is testing:</strong> whether you understand downstream execution and observability.</p>
+<p><strong>Strong answer guidance:</strong></p>
+<ul>
+<li>commands may be too small to overcome deadband</li>
+<li>downstream safety layers may gate them</li>
+<li>odometry may not reflect actual motion correctly</li>
+<li>the robot may move, but not enough to satisfy progress logic</li>
+</ul>
+<p>This answer gets stronger if you explicitly separate command intent from executed motion.</p>
+<hr />
+<h2 id="category-4-recoveries-behavior-trees-and-failure-policy">CATEGORY 4 — RECOVERIES, BEHAVIOR TREES, AND FAILURE POLICY</h2>
+<hr />
+<h2 id="10-how-do-you-decide-whether-a-recovery-policy-is-well-designed">10. How do you decide whether a recovery policy is well-designed?</h2>
+<p><strong>What the interviewer is testing:</strong> whether you see recoveries as operational policy, not random retries.</p>
+<p><strong>Strong answer guidance:</strong></p>
+<ul>
+<li>each recovery should reflect a plausible failure story</li>
+<li>each retry should buy either new information or a meaningfully changed state</li>
+<li>retry budget should match the environment and operational cost of delay</li>
+<li>escalation should happen when repeated actions are not changing the situation</li>
+</ul>
+<p><strong>Great answer detail:</strong> mention that endless busy behavior destroys operator trust faster than fast escalation.</p>
+<hr />
+<h2 id="11-when-would-you-modify-the-default-nav2-bt-tree-for-a-warehouse-robot">11. When would you modify the default Nav2 BT tree for a warehouse robot?</h2>
+<p><strong>What the interviewer is testing:</strong> policy reasoning and BT literacy.</p>
+<p><strong>Strong answer guidance:</strong></p>
+<ul>
+<li>when retry ordering or gating must match operational conditions better</li>
+<li>when blocked-aisle handling differs from default assumptions</li>
+<li>when mission-specific conditions need safe interaction with navigation</li>
+<li>explain why BT changes are policy changes, not tuning changes</li>
+</ul>
+<p><strong>Weak answer pattern:</strong> editing the tree without a clear failure story or test plan.</p>
+<hr />
+<h2 id="12-a-robot-repeatedly-clears-costmaps-and-spins-with-no-success-what-does-that-tell-you">12. A robot repeatedly clears costmaps and spins with no success. What does that tell you?</h2>
+<p><strong>What the interviewer is testing:</strong> whether you can interpret the behavior policy outcome.</p>
+<p><strong>Strong answer guidance:</strong></p>
+<ul>
+<li>recoveries are likely assuming the wrong failure story</li>
+<li>possible deeper issues include localization breakdown, persistent true blockage, or ownership mismatch near docking/task logic</li>
+<li>explain that the incident should be reclassified rather than given more retries</li>
+</ul>
+<hr />
+<h2 id="category-5-debugging-observability-and-incident-response">CATEGORY 5 — DEBUGGING, OBSERVABILITY, AND INCIDENT RESPONSE</h2>
+<hr />
+<h2 id="13-what-is-your-first-response-workflow-when-an-amr-navigation-incident-happens-in-production">13. What is your first-response workflow when an AMR navigation incident happens in production?</h2>
+<p><strong>What the interviewer is testing:</strong> whether you can operate under pressure without random tuning.</p>
+<p><strong>Strong answer guidance:</strong></p>
+<ul>
+<li>record mission context and exact timestamps</li>
+<li>collect logs and bag data</li>
+<li>verify lifecycle and action state</li>
+<li>inspect TF, localization, costmaps, planner, controller, and recovery story in a fixed order</li>
+<li>produce a ranked hypothesis list backed by evidence</li>
+</ul>
+<p><strong>Strong signal:</strong> the answer has a repeatable sequence.</p>
+<hr />
+<h2 id="14-what-data-would-you-want-in-a-rosbag-for-a-nav2-incident-and-why">14. What data would you want in a rosbag for a Nav2 incident, and why?</h2>
+<p><strong>What the interviewer is testing:</strong> whether you understand offline debugging requirements.</p>
+<p><strong>Strong answer guidance:</strong></p>
+<ul>
+<li>TF and TF static</li>
+<li>odometry and localization outputs</li>
+<li>costmap-relevant sensor topics</li>
+<li>action goal, feedback, and result</li>
+<li><code>cmd_vel</code> and any downstream gated command topic</li>
+<li>contextual mission or diagnostic topics</li>
+</ul>
+<p>Then explain what questions those data streams answer.</p>
+<hr />
+<h2 id="15-how-do-you-distinguish-root-cause-from-downstream-fallout-in-logs">15. How do you distinguish root cause from downstream fallout in logs?</h2>
+<p><strong>What the interviewer is testing:</strong> disciplined reasoning from timelines.</p>
+<p><strong>Strong answer guidance:</strong></p>
+<ul>
+<li>read logs chronologically</li>
+<li>find the last normal state and first meaningful anomaly</li>
+<li>rank messages by subsystem upstreamness</li>
+<li>do not let the final abort message dominate the diagnosis</li>
+</ul>
+<p>This is a strong senior signal because many engineers never learn to read logs as causality.</p>
+<hr />
+<h2 id="category-6-production-tuning-rollouts-and-configuration-control">CATEGORY 6 — PRODUCTION TUNING, ROLLOUTS, AND CONFIGURATION CONTROL</h2>
+<hr />
+<h2 id="16-how-do-you-structure-nav2-parameters-so-changes-stay-safe-across-robot-variants-and-sites">16. How do you structure Nav2 parameters so changes stay safe across robot variants and sites?</h2>
+<p><strong>What the interviewer is testing:</strong> whether you can run a maintainable navigation program, not just a demo stack.</p>
+<p><strong>Strong answer guidance:</strong></p>
+<ul>
+<li>layer by ownership: platform, robot variant, site, runtime mode, temporary override</li>
+<li>avoid mixing geometry, localization, and site semantics casually</li>
+<li>explain how to compare effective configuration, not just source files</li>
+<li>mention rollback discipline and targeted rollout</li>
+</ul>
+<hr />
+<h2 id="17-a-tuning-change-improves-one-robot-but-breaks-another-how-do-you-respond">17. A tuning change improves one robot but breaks another. How do you respond?</h2>
+<p><strong>What the interviewer is testing:</strong> configuration ownership discipline.</p>
+<p><strong>Strong answer guidance:</strong></p>
+<ul>
+<li>assume the shared-vs-specific boundary is wrong until proven otherwise</li>
+<li>compare effective config and physical robot differences</li>
+<li>restore proper layering before inventing more exceptions</li>
+<li>explain how you would validate the corrected layering</li>
+</ul>
+<hr />
+<h2 id="18-how-would-you-safely-roll-out-a-major-navigation-change">18. How would you safely roll out a major navigation change?</h2>
+<p><strong>What the interviewer is testing:</strong> operational maturity.</p>
+<p><strong>Strong answer guidance:</strong></p>
+<ul>
+<li>verify in bag replay or simulation where possible</li>
+<li>test against representative scenarios: open aisle, tight aisle, final approach, dynamic obstruction</li>
+<li>limit rollout to one site or robot subset first</li>
+<li>monitor logs, recoveries, success rate, and operator feedback</li>
+<li>keep rollback simple and fast</li>
+</ul>
+<p>Senior answers make rollout sound controlled, not heroic.</p>
+<hr />
+<h2 id="category-7-amr-specific-design-judgment">CATEGORY 7 — AMR-SPECIFIC DESIGN JUDGMENT</h2>
+<hr />
+<h2 id="19-why-is-docking-often-a-bad-fit-for-plain-navigatetopose-all-the-way-to-contact">19. Why is docking often a bad fit for plain <code>NavigateToPose</code> all the way to contact?</h2>
+<p><strong>What the interviewer is testing:</strong> whether you understand navigation vs specialized final behavior.</p>
+<p><strong>Strong answer guidance:</strong></p>
+<ul>
+<li>docking often needs tighter final tolerances, alignment behavior, and station-specific confirmation</li>
+<li>generic navigation may be appropriate to a staging pose, but not necessarily for the final contact routine</li>
+<li>explain the benefit of clean ownership between approach navigation and docking-specific logic</li>
+</ul>
+<hr />
+<h2 id="20-when-should-keepout-zones-speed-zones-or-route-semantics-live-in-map-linked-navigation-configuration-instead-of-mission-logic">20. When should keepout zones, speed zones, or route semantics live in map-linked navigation configuration instead of mission logic?</h2>
+<p><strong>What the interviewer is testing:</strong> whether you can place geographic policy in the right layer.</p>
+<p><strong>Strong answer guidance:</strong></p>
+<ul>
+<li>when the rule is spatial, repeatable, and shared across many missions</li>
+<li>when operators and tooling need one visible truth for the environment</li>
+<li>when the behavior should be consistent regardless of which workflow invoked navigation</li>
+</ul>
+<p>This gets stronger if you explicitly warn against duplicating geographic rules in business logic.</p>
+<hr />
+<h2 id="21-a-team-says-nav2-is-unreliable-in-our-warehouse-what-questions-do-you-ask-first">21. A team says, &ldquo;Nav2 is unreliable in our warehouse.&rdquo; What questions do you ask first?</h2>
+<p><strong>What the interviewer is testing:</strong> executive-level diagnostic framing.</p>
+<p><strong>Strong answer guidance:</strong></p>
+<ul>
+<li>what failure classes dominate: no path, oscillation, final approach aborts, recovery exhaustion, localization drift?</li>
+<li>where and when do incidents cluster?</li>
+<li>what changed recently in maps, parameters, robot hardware, or mission flows?</li>
+<li>what evidence exists: bags, logs, metrics, operator reports?</li>
+</ul>
+<p>The best answers show you know how to turn a vague complaint into an engineering program.</p>
+<hr />
+<h2 id="category-8-capstone-questions">CATEGORY 8 — CAPSTONE QUESTIONS</h2>
+<hr />
+<h2 id="22-give-me-a-root-cause-ranking-for-this-scenario-the-robot-navigates-most-routes-well-but-afternoon-dock-approaches-near-staged-pallets-frequently-fail-with-oscillation-and-occasional-recovery-exhaustion">22. Give me a root-cause ranking for this scenario: the robot navigates most routes well, but afternoon dock approaches near staged pallets frequently fail with oscillation and occasional recovery exhaustion</h2>
+<p><strong>What the interviewer is testing:</strong> integrated reasoning across the whole stack.</p>
+<p><strong>Strong answer guidance:</strong></p>
+<ul>
+<li>offer a ranked list, not a single guess</li>
+<li>likely include local costmap pollution near the dock, docking ownership mismatch, localization quality near final approach, or robot-specific low-speed execution issues</li>
+<li>explain what evidence would reorder the ranking</li>
+<li>describe the safest validation approach for each candidate</li>
+</ul>
+<hr />
+<h2 id="23-tell-me-about-a-time-you-would-reject-a-proposed-fix-even-if-it-appears-to-improve-success-rate">23. Tell me about a time you would reject a proposed fix even if it appears to improve success rate</h2>
+<p><strong>What the interviewer is testing:</strong> engineering integrity.</p>
+<p><strong>Strong answer guidance:</strong></p>
+<ul>
+<li>examples: loosening goal tolerances, hiding localization problems with retries, widening keepout exceptions, masking drift with forceful recoveries</li>
+<li>explain why local success-rate gain may damage operational correctness or debuggability</li>
+<li>show willingness to defend system quality over easy optics</li>
+</ul>
+<hr />
+<h2 id="24-what-does-senior-ownership-of-nav2-look-like-beyond-writing-code">24. What does senior ownership of Nav2 look like beyond writing code?</h2>
+<p><strong>What the interviewer is testing:</strong> leadership and systems maturity.</p>
+<p><strong>Strong answer guidance:</strong></p>
+<ul>
+<li>defining ownership boundaries</li>
+<li>setting observability expectations</li>
+<li>standardizing incident debugging workflows</li>
+<li>maintaining safe parameter and rollout discipline</li>
+<li>mentoring others away from cargo-cult tuning</li>
+<li>improving documentation and failure taxonomy after incidents</li>
+</ul>
+<p>This answer often separates senior from merely experienced.</p>
+<hr />
+<h2 id="how-interviewers-can-use-this-bank">How Interviewers Can Use This Bank</h2>
+<p>If you are interviewing someone:</p>
+<ul>
+<li>start with system flow and ownership</li>
+<li>move into debugging and failure classification</li>
+<li>use one or two capstone scenarios to test synthesis</li>
+<li>push for tradeoffs and evidence, not slogans</li>
+<li>reward clarity, structure, and operational realism over trivia density</li>
+</ul>
+<p>The strongest Nav2 engineers usually sound calm, specific, and hard to confuse.</p>
+<hr />
+<h2 id="final-self-assessment-prompt">Final Self-Assessment Prompt</h2>
+<p>After working through this track, you should be able to answer:</p>
+<div class="highlight"><pre><span></span><code>If a warehouse AMR fails a goal, can I explain the likely failure class,
+the evidence I need, the ownership boundary involved, and the safest fix path
+without defaulting to random parameter changes?
+</code></pre></div>
+
+<p>If the answer is yes, you are thinking much closer to senior level.</p>
+<hr />
+<h2 id="track-wrap-up">Track Wrap-Up</h2>
+<p>This completes the planned Nav2 track from architecture through production ownership.</p>
+<p>The real test after this point is not whether you can define Nav2 terms.
+It is whether you can debug, tune, extend, and defend navigation decisions in a real AMR system with evidence and good boundaries.</p>
+            </div>
+        </div>
+
+        <footer class="text-center mt-16 py-6 border-t border-gray-300">
+            <p class="text-gray-500">Robotics Learning Resources</p>
+        </footer>
+    </div>
+</body>
+</html>

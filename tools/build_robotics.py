@@ -169,13 +169,17 @@ def esc(text):
 
 def extract_title(md_text):
     """Extract the first H1 from markdown, or fall back to first line."""
-    match = re.match(r"^#\s+(.+)", md_text, re.MULTILINE)
-    if match:
-        return match.group(1).strip()
-    # fall back to first non-empty line
+    for raw_line in md_text.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("<!--"):
+            continue
+        match = re.match(r"^#\s+(.+)", line)
+        if match:
+            return match.group(1).strip()
+    # fall back to first non-empty, non-comment line
     for line in md_text.splitlines():
         line = line.strip()
-        if line:
+        if line and not line.startswith("<!--"):
             return line[:80]
     return "Untitled"
 
@@ -184,7 +188,7 @@ def extract_subtitle(md_text):
     """Extract the first H3 or paragraph as a subtitle."""
     for line in md_text.splitlines()[1:]:
         line = line.strip()
-        if not line:
+        if not line or line.startswith("<!--"):
             continue
         if line.startswith("###"):
             return line.lstrip("#").strip()
@@ -201,10 +205,65 @@ def slug_to_title(slug):
     return slug.replace("-", " ").replace("_", " ").title()
 
 
+def md_path_to_html(path_text):
+    """Convert a markdown path reference to its rendered HTML path."""
+    return re.sub(r"\.md$", ".html", path_text)
+
+
+def md_path_to_label(path_text):
+    """Convert a markdown lesson path into a readable link label."""
+    stem = Path(path_text).stem
+    match = re.match(r"^(?P<number>\d+)-(?P<slug>.+)$", stem)
+    if not match:
+        return stem.replace("-", " ").replace("_", " ").title()
+
+    number = match.group("number")
+    words = match.group("slug").replace("_", " ").replace("-", " ").split()
+    titled = " ".join(word.upper() if word.isupper() else word.capitalize() for word in words)
+    return f"{number} — {titled}"
+
+
+def normalize_markdown_navigation_refs(md_text):
+    """Convert plain markdown lesson references into clickable links.
+
+    This keeps authoring lightweight for curriculum docs while ensuring rendered HTML
+    pages expose a usable sequential path. Fenced code blocks are left untouched.
+    """
+
+    bare_md_pattern = re.compile(r"(?<![A-Za-z0-9_./\[(])(?P<path>\.{0,2}/?[A-Za-z0-9_./-]+\.md)\b")
+    inline_code_md_pattern = re.compile(r"`(?P<path>\.{0,2}/?[A-Za-z0-9_./-]+\.md)`")
+    normalized_lines = []
+    in_fence = False
+
+    for line in md_text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("```"):
+            in_fence = not in_fence
+            normalized_lines.append(line)
+            continue
+
+        if in_fence:
+            normalized_lines.append(line)
+            continue
+
+        line = inline_code_md_pattern.sub(
+            lambda match: f"[{md_path_to_label(match.group('path'))}]({md_path_to_html(match.group('path'))})",
+            line,
+        )
+        line = bare_md_pattern.sub(
+            lambda match: f"[{md_path_to_label(match.group('path'))}]({md_path_to_html(match.group('path'))})",
+            line,
+        )
+        normalized_lines.append(line)
+
+    return "\n".join(normalized_lines)
+
+
 def convert_md_to_html(md_path, out_path, back_href, back_label, accent="blue"):
     """Convert a single markdown file to a styled HTML page."""
     md_text = md_path.read_text(encoding="utf-8")
     title = extract_title(md_text)
+    md_text = normalize_markdown_navigation_refs(md_text)
 
     md_ext = markdown.Markdown(extensions=[
         "tables", "fenced_code", "codehilite", "toc",

@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>11 — Nav2 Debugging, Observability, and Bag Analysis - Learning From Building Systems</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .card {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        /* Markdown content styling */
+        .md-content h1 { font-size: 2rem; font-weight: 700; color: #111827; margin-top: 2rem; margin-bottom: 1rem; }
+        .md-content h2 { font-size: 1.5rem; font-weight: 600; color: #1f2937; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; }
+        .md-content h3 { font-size: 1.25rem; font-weight: 600; color: #374151; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+        .md-content h4 { font-size: 1.1rem; font-weight: 600; color: #4b5563; margin-top: 1.25rem; margin-bottom: 0.5rem; }
+        .md-content p { margin-bottom: 1rem; line-height: 1.75; color: #374151; }
+        .md-content ul { list-style: disc; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content ol { list-style: decimal; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content li { margin-bottom: 0.35rem; line-height: 1.6; }
+        .md-content code {
+            background-color: #f3f4f6; padding: 0.15rem 0.4rem; border-radius: 0.25rem;
+            font-size: 0.875rem; font-family: 'Fira Code', 'Courier New', monospace; color: #be185d;
+        }
+        .md-content pre {
+            background-color: #1f2937; color: #e5e7eb; padding: 1rem; border-radius: 0.5rem;
+            overflow-x: auto; margin-bottom: 1.25rem; font-size: 0.85rem; line-height: 1.6;
+        }
+        .md-content pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+        .md-content blockquote {
+            border-left: 4px solid #6366f1; background: #eef2ff; padding: 0.75rem 1rem;
+            margin-bottom: 1rem; border-radius: 0 0.5rem 0.5rem 0; color: #374151;
+        }
+        .md-content table { width: 100%; border-collapse: collapse; margin-bottom: 1.25rem; }
+        .md-content th { background: #f9fafb; padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; text-align: left; font-weight: 600; font-size: 0.875rem; }
+        .md-content td { padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; font-size: 0.875rem; }
+        .md-content tr:hover { background-color: #f9fafb; }
+        .md-content hr { border: 0; border-top: 1px solid #e5e7eb; margin: 1.5rem 0; }
+        .md-content strong { font-weight: 600; }
+        .md-content a { color: #2563eb; text-decoration: underline; }
+        .md-content a:hover { color: #1d4ed8; }
+        .md-content img { max-width: 100%; border-radius: 0.5rem; margin: 1rem 0; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-4xl">
+        <a href="index.html" class="text-violet-600 hover:text-violet-800 mb-4 inline-block">&larr; Back to Nav2</a>
+
+        <div class="bg-white rounded-xl shadow-md p-6 sm:p-8 md:p-10">
+            <div class="md-content">
+<h1 id="11-nav2-debugging-observability-and-bag-analysis">11 — Nav2 Debugging, Observability, and Bag Analysis</h1>
+<h2 id="how-to-debug-amr-navigation-incidents-from-symptoms-logs-tf-topics-and-rosbag-evidence-instead-of-random-parameter-changes">How to debug AMR navigation incidents from symptoms, logs, TF, topics, and rosbag evidence instead of random parameter changes</h2>
+<p><strong>Prerequisite:</strong> <a href="10-nav2-parameters-launch-and-plugin-extension.html">10 — Nav2 Parameters Launch And Plugin Extension</a>, <a href="07-nav2-localization-odom-amcl-ekf.html">07 — Nav2 Localization Odom Amcl Ekf</a>, <a href="03-nav2-bt-navigator-and-bt-xml.html">03 — Nav2 Bt Navigator And Bt Xml</a>
+<strong>Unlocks:</strong> Faster root-cause isolation, stronger incident response habits, cleaner use of logs and bag replay, better separation between localization, costmap, planner, controller, and BT-policy failures</p>
+<hr />
+<h2 id="why-should-i-care-context">Why Should I Care? (Context)</h2>
+<p>When a production AMR fails in the field, the worst debugging pattern is:</p>
+<ol>
+<li>restart everything</li>
+<li>change two parameters</li>
+<li>re-run once</li>
+<li>declare it fixed because the robot moved</li>
+<li>wait for the incident to come back next shift</li>
+</ol>
+<p>Nav2 incidents usually sit at the intersection of multiple surfaces:</p>
+<ul>
+<li>lifecycle and startup state</li>
+<li>TF freshness and frame ownership</li>
+<li>localization quality</li>
+<li>costmap observations</li>
+<li>planner validity</li>
+<li>controller execution quality</li>
+<li>BT retry and recovery policy</li>
+<li>mission-layer expectations</li>
+</ul>
+<p>If you cannot observe those surfaces cleanly, you do not really know what failed.</p>
+<p>This lesson is about building a disciplined debugging workflow for AMR navigation systems.</p>
+<hr />
+<h2 id="part-1-observability-before-tuning">PART 1 — OBSERVABILITY BEFORE TUNING</h2>
+<hr />
+<h2 id="11-most-nav2-tuning-problems-are-actually-visibility-problems">1.1 Most Nav2 &ldquo;Tuning&rdquo; Problems Are Actually Visibility Problems</h2>
+<p>Teams often say:</p>
+<ul>
+<li>the planner is bad</li>
+<li>the controller is oscillating</li>
+<li>Nav2 is flaky</li>
+</ul>
+<p>But what they really mean is:</p>
+<ul>
+<li>we do not know which server failed first</li>
+<li>we do not know whether TF was valid at failure time</li>
+<li>we do not know whether the robot was localized correctly</li>
+<li>we do not know what costmaps believed</li>
+</ul>
+<p>If you cannot answer those four questions, tuning is premature.</p>
+<hr />
+<h2 id="12-a-production-debugging-rule">1.2 A Production Debugging Rule</h2>
+<p>Before changing parameters, capture evidence from at least these categories:</p>
+<table>
+<thead>
+<tr>
+<th>Surface</th>
+<th>Questions to answer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>lifecycle</td>
+<td>were the nodes actually active and healthy?</td>
+</tr>
+<tr>
+<td>TF</td>
+<td>did required transforms exist, with sane timestamps?</td>
+</tr>
+<tr>
+<td>localization</td>
+<td>was pose estimate believable enough for navigation?</td>
+</tr>
+<tr>
+<td>topics and actions</td>
+<td>was the command and feedback flow alive?</td>
+</tr>
+<tr>
+<td>logs</td>
+<td>which component emitted the first meaningful failure?</td>
+</tr>
+<tr>
+<td>bag data</td>
+<td>can the incident be replayed or inspected offline?</td>
+</tr>
+</tbody>
+</table>
+<p>This turns vague failure reports into something diagnosable.</p>
+<hr />
+<h2 id="13-start-with-the-symptom-not-with-a-favorite-tool">1.3 Start With the Symptom, Not With a Favorite Tool</h2>
+<p>Real incident statements are usually symptom-level:</p>
+<ul>
+<li>robot spins near a rack and never finishes the goal</li>
+<li>robot says no valid path although aisle looks open</li>
+<li>robot reaches near the dock and then aborts</li>
+<li>robot keeps clearing costmaps until mission timeout</li>
+</ul>
+<p>Those are starting points, not diagnoses.</p>
+<p>Your job is to translate the symptom into a structured investigation.</p>
+<hr />
+<h2 id="part-2-a-structured-nav2-incident-triage-flow">PART 2 — A STRUCTURED NAV2 INCIDENT TRIAGE FLOW</h2>
+<hr />
+<h2 id="21-first-decide-whether-the-failure-is-startup-runtime-or-intermittent">2.1 First Decide Whether the Failure Is Startup, Runtime, or Intermittent</h2>
+<p>These three classes demand different debugging moves.</p>
+<table>
+<thead>
+<tr>
+<th>Failure class</th>
+<th>Typical signs</th>
+<th>Best first move</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>startup failure</td>
+<td>bringup never stabilizes, actions unavailable, nodes inactive</td>
+<td>inspect lifecycle, launch, params, missing dependencies</td>
+</tr>
+<tr>
+<td>runtime failure</td>
+<td>system starts cleanly but fails during navigation</td>
+<td>inspect logs, TF, costmaps, action feedback, controller state</td>
+</tr>
+<tr>
+<td>intermittent field failure</td>
+<td>same stack sometimes works, sometimes does not</td>
+<td>capture bags, timestamps, environment conditions, repeatability clues</td>
+</tr>
+</tbody>
+</table>
+<p>Do not debug all three with the same mental model.</p>
+<hr />
+<h2 id="22-ask-what-was-the-first-broken-contract">2.2 Ask: What Was the First Broken Contract?</h2>
+<p>Useful Nav2 debugging often reduces to this question:</p>
+<div class="highlight"><pre><span></span><code>what contract failed first?
+</code></pre></div>
+
+<p>Possible contracts:</p>
+<ul>
+<li>transform contract: required frames unavailable or stale</li>
+<li>localization contract: pose estimate inconsistent with reality</li>
+<li>perception contract: obstacle data missing, stale, or polluted</li>
+<li>planning contract: no valid path under current map and constraints</li>
+<li>control contract: commands issued but motion not achieved</li>
+<li>behavior policy contract: retries or recoveries mismatch the real failure story</li>
+</ul>
+<p>If you skip straight to the last visible symptom, you often miss the earliest broken contract.</p>
+<hr />
+<h2 id="23-keep-a-fixed-triage-order">2.3 Keep a Fixed Triage Order</h2>
+<p>A practical order for field incidents:</p>
+<ol>
+<li>confirm goal and mission context</li>
+<li>check lifecycle and node liveness</li>
+<li>inspect TF tree and timestamps</li>
+<li>validate localization against reality</li>
+<li>inspect global and local costmap story</li>
+<li>inspect planner outputs and controller behavior</li>
+<li>inspect BT recoveries and retry loops</li>
+<li>only then change configuration or code</li>
+</ol>
+<p>This avoids the common trap of tuning the controller when the real issue is stale TF.</p>
+<hr />
+<h2 id="part-3-logs-what-to-read-and-how-to-read-them">PART 3 — LOGS: WHAT TO READ AND HOW TO READ THEM</h2>
+<hr />
+<h2 id="31-logs-should-be-read-as-a-timeline-not-as-isolated-errors">3.1 Logs Should Be Read as a Timeline, Not as Isolated Errors</h2>
+<p>Engineers often grab the loudest line in the logs and stop there.</p>
+<p>That is dangerous because later components may simply be reporting downstream fallout.</p>
+<p>Read logs as a sequence:</p>
+<ol>
+<li>what was the last normal event?</li>
+<li>which server reported trouble first?</li>
+<li>what did recovery logic do next?</li>
+<li>what finally caused abort or timeout?</li>
+</ol>
+<p>The first meaningful anomaly matters more than the last dramatic one.</p>
+<hr />
+<h2 id="32-useful-log-categories-during-nav2-incidents">3.2 Useful Log Categories During Nav2 Incidents</h2>
+<p>Look for evidence around:</p>
+<ul>
+<li>lifecycle transitions and activation failures</li>
+<li>missing transforms or TF timeout messages</li>
+<li>costmap sensor update or clearing anomalies</li>
+<li>planner no-path or invalid-path messages</li>
+<li>controller progress-checker or goal-checker outcomes</li>
+<li>BT recovery loop entries and retry exhaustion</li>
+</ul>
+<p>One useful discipline is to annotate each log clue by subsystem ownership before discussing fixes.</p>
+<hr />
+<h2 id="33-avoid-reading-logs-like-confirmation-bias-fuel">3.3 Avoid Reading Logs Like Confirmation Bias Fuel</h2>
+<p>Bad pattern:</p>
+<ol>
+<li>operator says robot was stuck</li>
+<li>engineer assumes controller issue</li>
+<li>engineer scans logs until they find one controller warning</li>
+<li>localization drift evidence gets ignored</li>
+</ol>
+<p>Good pattern:</p>
+<ol>
+<li>collect all subsystem anomalies in time order</li>
+<li>rank them by how upstream they are</li>
+<li>pick the earliest plausible root-cause candidate</li>
+</ol>
+<p>That is how you avoid cargo-cult retuning.</p>
+<hr />
+<h2 id="part-4-tf-inspection-the-fastest-way-to-catch-invisible-breakage">PART 4 — TF INSPECTION: THE FASTEST WAY TO CATCH INVISIBLE BREAKAGE</h2>
+<hr />
+<h2 id="41-tf-problems-commonly-masquerade-as-planner-or-controller-problems">4.1 TF Problems Commonly Masquerade as Planner or Controller Problems</h2>
+<p>If these transforms are wrong, stale, or inconsistently timestamped, Nav2 behavior will degrade in confusing ways:</p>
+<ul>
+<li><code>map -&gt; odom</code></li>
+<li><code>odom -&gt; base_link</code></li>
+<li>sensor frame relationships to <code>base_link</code></li>
+</ul>
+<p>Symptoms may look like:</p>
+<ul>
+<li>planner says no path unexpectedly</li>
+<li>local costmap appears shifted relative to reality</li>
+<li>robot oscillates because local frame alignment is bad</li>
+<li>recoveries repeat because the robot state estimate is incoherent</li>
+</ul>
+<hr />
+<h2 id="42-what-to-inspect-in-tf">4.2 What to Inspect in TF</h2>
+<p>During an incident, inspect:</p>
+<ol>
+<li>whether required frames exist at all</li>
+<li>whether timestamps are fresh enough for current processing</li>
+<li>whether transforms jump, reset, or drift unexpectedly</li>
+<li>whether frame ownership is consistent with your localization design</li>
+</ol>
+<p>Useful questions:</p>
+<ul>
+<li>is AMCL or EKF publishing the transform you think it is?</li>
+<li>did simulation and hardware use different frame conventions?</li>
+<li>did namespacing or remapping point Nav2 at the wrong tree?</li>
+</ul>
+<hr />
+<h2 id="43-typical-tf-failure-patterns-in-amrs">4.3 Typical TF Failure Patterns in AMRs</h2>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Likely TF issue</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>robot footprint looks offset in RViz</td>
+<td>wrong static transform or base frame assumption</td>
+</tr>
+<tr>
+<td>costmap obstacles appear late or displaced</td>
+<td>sensor frame transform stale or incorrect</td>
+</tr>
+<tr>
+<td>localization appears to jump after startup</td>
+<td>competing publishers or reset behavior</td>
+</tr>
+<tr>
+<td>robot moves physically but Nav2 thinks progress is poor</td>
+<td>odom or localization inconsistency</td>
+</tr>
+</tbody>
+</table>
+<p>Treat TF as first-class production telemetry, not background infrastructure.</p>
+<hr />
+<h2 id="part-5-topic-and-action-inspection">PART 5 — TOPIC AND ACTION INSPECTION</h2>
+<hr />
+<h2 id="51-topic-liveness-does-not-mean-semantic-health">5.1 Topic Liveness Does Not Mean Semantic Health</h2>
+<p>A topic existing is not enough.</p>
+<p>You still need to ask:</p>
+<ul>
+<li>is data arriving at the expected rate?</li>
+<li>are timestamps sane?</li>
+<li>is the frame ID correct?</li>
+<li>does the data tell a believable physical story?</li>
+</ul>
+<p>This matters especially for:</p>
+<ul>
+<li>odometry</li>
+<li>localization pose outputs</li>
+<li>laser or depth observations</li>
+<li>costmap publications</li>
+<li>velocity commands</li>
+<li>action feedback and status</li>
+</ul>
+<hr />
+<h2 id="52-action-debugging-is-mission-debugging-too">5.2 Action Debugging Is Mission Debugging Too</h2>
+<p>For navigation actions, inspect:</p>
+<ul>
+<li>whether goals are accepted cleanly</li>
+<li>whether feedback progresses in a believable way</li>
+<li>whether cancel or preemption events happened</li>
+<li>whether the result failure code matches the observed behavior</li>
+</ul>
+<p>In AMR systems, navigation failures can be misreported if the mission layer times out or cancels first.</p>
+<p>Do not assume Nav2 owned the final abort just because the robot stopped moving.</p>
+<hr />
+<h2 id="53-cmd_vel-inspection-must-be-interpreted-carefully">5.3 <code>cmd_vel</code> Inspection Must Be Interpreted Carefully</h2>
+<p>Seeing velocity commands tells you only that Nav2 attempted control output.</p>
+<p>It does not prove:</p>
+<ul>
+<li>the base executed them correctly</li>
+<li>the commands survived downstream safety gating</li>
+<li>deadband or saturation did not flatten them</li>
+<li>localization reflected the resulting motion accurately</li>
+</ul>
+<p>Always compare command intent with actual motion evidence.</p>
+<hr />
+<h2 id="part-6-rosbag-as-the-source-of-truth">PART 6 — ROSBAG AS THE SOURCE OF TRUTH</h2>
+<hr />
+<h2 id="61-why-bags-matter">6.1 Why Bags Matter</h2>
+<p>Field failures are often impossible to reason about from memory or screenshots.</p>
+<p>Bags let you inspect:</p>
+<ul>
+<li>exact timestamps</li>
+<li>message order</li>
+<li>transform availability</li>
+<li>action feedback over time</li>
+<li>localization drift and recovery loops</li>
+</ul>
+<p>Without a bag, teams often end up debugging stories rather than evidence.</p>
+<hr />
+<h2 id="62-what-to-capture-for-nav2-incidents">6.2 What to Capture for Nav2 Incidents</h2>
+<p>A good incident bag should usually include:</p>
+<ul>
+<li>TF and TF static</li>
+<li>odometry and localization outputs</li>
+<li>scan or perception topics feeding costmaps</li>
+<li>global and local costmap publications if feasible</li>
+<li>action goal, feedback, and result topics</li>
+<li><code>cmd_vel</code> and any post-safety gated velocity topic</li>
+<li>diagnostics or mission state topics that explain context</li>
+</ul>
+<p>Capture enough context to reconstruct the failure story, not just the last 10 seconds of motion.</p>
+<hr />
+<h2 id="63-bag-review-questions">6.3 Bag Review Questions</h2>
+<p>When reviewing a bag, answer in order:</p>
+<ol>
+<li>what goal was active?</li>
+<li>where did the robot believe it was?</li>
+<li>what did the maps and costmaps believe about the environment?</li>
+<li>did the planner have a valid route?</li>
+<li>what commands did the controller produce?</li>
+<li>what recovery policy was triggered?</li>
+<li>what evidence supports the claimed root cause?</li>
+</ol>
+<p>If you cannot answer those from the bag, the capture was incomplete.</p>
+<hr />
+<h2 id="64-bag-replay-is-not-reality-but-it-is-still-powerful">6.4 Bag Replay Is Not Reality, But It Is Still Powerful</h2>
+<p>Bag replay helps isolate software-side behavior, but it has limits:</p>
+<ul>
+<li>actuator faults may not reproduce</li>
+<li>safety PLC gating may not be modeled</li>
+<li>real traffic and moving humans are not recreated automatically</li>
+<li>timing on overloaded production hardware may differ from replay hosts</li>
+</ul>
+<p>Use replay to narrow hypotheses, then confirm in the right environment.</p>
+<hr />
+<h2 id="part-7-costmap-and-rviz-inspection">PART 7 — COSTMAP AND RVIZ INSPECTION</h2>
+<hr />
+<h2 id="71-costmaps-explain-many-planner-incidents">7.1 Costmaps Explain Many &ldquo;Planner&rdquo; Incidents</h2>
+<p>If the planner says no path, inspect whether the path was truly impossible under the current costmap state.</p>
+<p>Common realities:</p>
+<ul>
+<li>inflated corridor became too narrow for the configured footprint</li>
+<li>stale obstacle blocked the only aisle</li>
+<li>unknown-space policy prevented routing</li>
+<li>local costmap made valid motion look unsafe near the robot</li>
+</ul>
+<p>Many planner incidents are really world-model incidents.</p>
+<hr />
+<h2 id="72-rviz-is-a-reasoning-tool-not-just-a-pretty-dashboard">7.2 RViz Is a Reasoning Tool, Not Just a Pretty Dashboard</h2>
+<p>Use RViz to compare:</p>
+<ul>
+<li>robot pose vs reality</li>
+<li>footprint vs aisle geometry</li>
+<li>planned path vs local obstacles</li>
+<li>sensor observations vs costmap occupancy</li>
+<li>goal location vs operationally correct staging point</li>
+</ul>
+<p>If the visual story is inconsistent, stop tuning and explain the inconsistency first.</p>
+<hr />
+<h2 id="73-snapshot-the-evidence-not-just-the-screen">7.3 Snapshot the Evidence, Not Just the Screen</h2>
+<p>For recurring incidents, retain:</p>
+<ul>
+<li>RViz screenshots with frame overlays visible</li>
+<li>bag timestamp range</li>
+<li>log timestamp range</li>
+<li>mission identifier and goal details</li>
+<li>environmental notes such as blocked aisle, pallet, or dock occupancy</li>
+</ul>
+<p>That turns a one-off troubleshooting session into reusable operational knowledge.</p>
+<hr />
+<h2 id="part-8-a-practical-nav2-incident-playbook">PART 8 — A PRACTICAL NAV2 INCIDENT PLAYBOOK</h2>
+<hr />
+<h2 id="81-minimal-debugging-checklist">8.1 Minimal Debugging Checklist</h2>
+<p>Use this checklist before anyone proposes a fix:</p>
+<ol>
+<li>record incident time and mission context</li>
+<li>save logs for the time window</li>
+<li>confirm lifecycle state of Nav2 nodes</li>
+<li>inspect TF health and frame freshness</li>
+<li>verify localization against map reality</li>
+<li>inspect costmap and planner story</li>
+<li>inspect controller output and real motion</li>
+<li>review recovery loop behavior</li>
+<li>extract bag evidence for offline analysis</li>
+<li>state the root-cause hypothesis and the evidence that supports it</li>
+</ol>
+<p>This checklist is deliberately boring. That is why it works.</p>
+<hr />
+<h2 id="82-map-common-symptoms-to-first-checks">8.2 Map Common Symptoms to First Checks</h2>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Best first checks</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>robot immediately rejects goal</td>
+<td>lifecycle, action server availability, frame mismatch</td>
+</tr>
+<tr>
+<td>robot says no path in open map</td>
+<td>costmap occupancy, footprint, unknown-space policy, TF</td>
+</tr>
+<tr>
+<td>robot plans but barely moves</td>
+<td>controller outputs, progress checker, base execution, odom</td>
+</tr>
+<tr>
+<td>robot nears goal then oscillates or aborts</td>
+<td>localization precision, goal checker, controller tuning, docking semantics</td>
+</tr>
+<tr>
+<td>repeated recoveries with no progress</td>
+<td>wrong failure story, stale costmap, localization issue, blocked aisle policy</td>
+</tr>
+</tbody>
+</table>
+<p>This is where debugging becomes operationally efficient.</p>
+<hr />
+<h2 id="83-write-the-incident-summary-like-an-engineer-not-like-a-witness">8.3 Write the Incident Summary Like an Engineer, Not Like a Witness</h2>
+<p>Bad summary:</p>
+<div class="highlight"><pre><span></span><code>Nav2 failed near the dock and seemed confused.
+</code></pre></div>
+
+<p>Better summary:</p>
+<div class="highlight"><pre><span></span><code>Robot accepted NavigateToPose at 14:03:12.
+Global planning succeeded, but local costmap retained a stale obstacle at dock approach.
+Controller produced bounded angular commands with poor linear progress.
+Progress checker triggered three recoveries and abort followed at 14:03:46.
+TF remained valid. Localization error stayed within expected tolerance.
+Primary root cause hypothesis: stale local obstacle persistence near dock staging zone.
+</code></pre></div>
+
+<p>That level of precision changes the quality of the next discussion.</p>
+<hr />
+<h2 id="part-9-case-studies">PART 9 — CASE STUDIES</h2>
+<hr />
+<h2 id="91-incident-planner-is-broken">9.1 Incident: &ldquo;Planner Is Broken&rdquo;</h2>
+<p>Observed symptom:</p>
+<ul>
+<li>robot reports no valid path in a visually open aisle</li>
+</ul>
+<p>Structured findings:</p>
+<ol>
+<li>lifecycle healthy</li>
+<li>TF healthy</li>
+<li>localization reasonable</li>
+<li>global costmap shows inflated blockage caused by an old obstacle source</li>
+<li>planner correctly refuses the path under that map state</li>
+</ol>
+<p>Root cause class:</p>
+<ul>
+<li>perception or costmap observability problem, not planner algorithm failure</li>
+</ul>
+<hr />
+<h2 id="92-incident-controller-is-oscillating">9.2 Incident: &ldquo;Controller Is Oscillating&rdquo;</h2>
+<p>Observed symptom:</p>
+<ul>
+<li>robot wiggles near a final pose and eventually aborts</li>
+</ul>
+<p>Structured findings:</p>
+<ol>
+<li>goal is effectively a docking-like alignment problem</li>
+<li>localization noise near the station is worse than assumed</li>
+<li>goal checker tolerance and final-approach expectations conflict</li>
+<li>generic navigation control is being asked to finish a docking workflow it does not own</li>
+</ol>
+<p>Root cause class:</p>
+<ul>
+<li>ownership and operational contract problem, not just controller tuning</li>
+</ul>
+<hr />
+<h2 id="93-incident-nav2-randomly-fails-on-one-robot">9.3 Incident: &ldquo;Nav2 Randomly Fails on One Robot&rdquo;</h2>
+<p>Observed symptom:</p>
+<ul>
+<li>same site works on two AMRs but one repeatedly gets stuck</li>
+</ul>
+<p>Structured findings:</p>
+<ol>
+<li>parameters appear shared, but one robot has different drivetrain deadband</li>
+<li><code>cmd_vel</code> shows small commands that do not translate into real motion</li>
+<li>odometry reports weak progress and progress checker fires</li>
+</ol>
+<p>Root cause class:</p>
+<ul>
+<li>robot-specific execution and tuning mismatch hidden inside supposedly shared configuration</li>
+</ul>
+<hr />
+<h2 id="part-10-what-good-looks-like">PART 10 — WHAT GOOD LOOKS LIKE</h2>
+<hr />
+<h2 id="101-mature-teams-build-navigation-debugging-into-operations">10.1 Mature Teams Build Navigation Debugging Into Operations</h2>
+<p>Strong teams do not wait for a severe incident to think about observability.</p>
+<p>They already have:</p>
+<ul>
+<li>known-good bag capture procedures</li>
+<li>subsystem-oriented logging conventions</li>
+<li>RViz layouts for fast inspection</li>
+<li>TF health checks in bringup validation</li>
+<li>post-incident templates that separate symptom, evidence, hypothesis, and fix</li>
+</ul>
+<p>That is operational maturity, not extra polish.</p>
+<hr />
+<h2 id="102-final-mental-model">10.2 Final Mental Model</h2>
+<p>Nav2 debugging is not about finding the one magical line in the logs.</p>
+<p>It is about reconstructing a chain:</p>
+<div class="highlight"><pre><span></span><code>goal intent
+    -&gt; lifecycle readiness
+    -&gt; TF and localization validity
+    -&gt; world model correctness
+    -&gt; planning outcome
+    -&gt; control execution
+    -&gt; recovery policy
+    -&gt; mission consequence
+</code></pre></div>
+
+<p>When you can walk that chain without hand-waving, you can own AMR navigation incidents under pressure.</p>
+<hr />
+<h2 id="quick-recap">Quick Recap</h2>
+<ul>
+<li>debug in a fixed order before tuning</li>
+<li>use logs as a timeline, not as isolated error fragments</li>
+<li>treat TF as a first-class production dependency</li>
+<li>inspect action, topic, and <code>cmd_vel</code> data semantically, not just for liveness</li>
+<li>use bags to reconstruct evidence and replay hypotheses offline</li>
+<li>separate root cause from downstream fallout</li>
+</ul>
+<hr />
+<h2 id="next-lesson">Next Lesson</h2>
+<p>Continue to <a href="12-nav2-amr-failure-patterns-and-capstone.html">12 — Nav2 Amr Failure Patterns And Capstone</a></p>
+            </div>
+        </div>
+
+        <footer class="text-center mt-16 py-6 border-t border-gray-300">
+            <p class="text-gray-500">Robotics Learning Resources</p>
+        </footer>
+    </div>
+</body>
+</html>

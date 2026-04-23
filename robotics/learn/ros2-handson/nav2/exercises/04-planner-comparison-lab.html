@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exercise04 — Nav2 Planner Comparison Lab - Learning From Building Systems</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .card {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        /* Markdown content styling */
+        .md-content h1 { font-size: 2rem; font-weight: 700; color: #111827; margin-top: 2rem; margin-bottom: 1rem; }
+        .md-content h2 { font-size: 1.5rem; font-weight: 600; color: #1f2937; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; }
+        .md-content h3 { font-size: 1.25rem; font-weight: 600; color: #374151; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+        .md-content h4 { font-size: 1.1rem; font-weight: 600; color: #4b5563; margin-top: 1.25rem; margin-bottom: 0.5rem; }
+        .md-content p { margin-bottom: 1rem; line-height: 1.75; color: #374151; }
+        .md-content ul { list-style: disc; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content ol { list-style: decimal; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content li { margin-bottom: 0.35rem; line-height: 1.6; }
+        .md-content code {
+            background-color: #f3f4f6; padding: 0.15rem 0.4rem; border-radius: 0.25rem;
+            font-size: 0.875rem; font-family: 'Fira Code', 'Courier New', monospace; color: #be185d;
+        }
+        .md-content pre {
+            background-color: #1f2937; color: #e5e7eb; padding: 1rem; border-radius: 0.5rem;
+            overflow-x: auto; margin-bottom: 1.25rem; font-size: 0.85rem; line-height: 1.6;
+        }
+        .md-content pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+        .md-content blockquote {
+            border-left: 4px solid #6366f1; background: #eef2ff; padding: 0.75rem 1rem;
+            margin-bottom: 1rem; border-radius: 0 0.5rem 0.5rem 0; color: #374151;
+        }
+        .md-content table { width: 100%; border-collapse: collapse; margin-bottom: 1.25rem; }
+        .md-content th { background: #f9fafb; padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; text-align: left; font-weight: 600; font-size: 0.875rem; }
+        .md-content td { padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; font-size: 0.875rem; }
+        .md-content tr:hover { background-color: #f9fafb; }
+        .md-content hr { border: 0; border-top: 1px solid #e5e7eb; margin: 1.5rem 0; }
+        .md-content strong { font-weight: 600; }
+        .md-content a { color: #2563eb; text-decoration: underline; }
+        .md-content a:hover { color: #1d4ed8; }
+        .md-content img { max-width: 100%; border-radius: 0.5rem; margin: 1rem 0; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-4xl">
+        <a href="../index.html" class="text-violet-600 hover:text-violet-800 mb-4 inline-block">&larr; Back to Nav2</a>
+
+        <div class="bg-white rounded-xl shadow-md p-6 sm:p-8 md:p-10">
+            <div class="md-content">
+<!-- markdownlint-disable MD033 -->
+
+<h1 id="exercise04-nav2-planner-comparison-lab">Exercise04 — Nav2 Planner Comparison Lab</h1>
+<h2 id="companion-exercises-for-05-nav2-global-planning-04-nav2-costmaps-and-layers-and-12-nav2-amr-failure-patterns-and-capstone">Companion exercises for <a href="../05-nav2-global-planning.html">05 — Nav2 Global Planning</a>, <a href="../04-nav2-costmaps-and-layers.html">04 — Nav2 Costmaps And Layers</a>, and <a href="../12-nav2-amr-failure-patterns-and-capstone.html">12 — Nav2 Amr Failure Patterns And Capstone</a></h2>
+<p><strong>Estimated time:</strong> 85 to 105 minutes<br />
+<strong>Prerequisite lessons:</strong> <a href="../04-nav2-costmaps-and-layers.html">04 — Nav2 Costmaps And Layers</a>, <a href="../05-nav2-global-planning.html">05 — Nav2 Global Planning</a>, <a href="../12-nav2-amr-failure-patterns-and-capstone.html">12 — Nav2 Amr Failure Patterns And Capstone</a></p>
+<p><strong>Mode options:</strong></p>
+<ul>
+<li><strong>Simulation:</strong> compare planner outputs on the same map and goals using two or more planner plugins.</li>
+<li><strong>Offline analysis:</strong> inspect path screenshots, metrics, or log excerpts if you cannot run the planners directly.</li>
+<li><strong>Design review:</strong> treat this as a planner-selection memo for a real AMR product team.</li>
+</ul>
+<p><strong>Validation goal:</strong> finish with a planner recommendation that is grounded in environment constraints, controller followability, and operational risk rather than personal preference.</p>
+<hr />
+<h2 id="overview">Overview</h2>
+<p>This lab exists because many planner discussions collapse into cargo-cult answers like &ldquo;use the more advanced planner&rdquo; or &ldquo;just switch to Smac Hybrid-A*&rdquo;.</p>
+<p>A production planner decision should instead weigh:</p>
+<ol>
+<li>whether the global costmap is trustworthy enough for planner comparisons to mean anything</li>
+<li>whether the vehicle actually benefits from stronger kinematic realism</li>
+<li>whether the returned path is easier for the controller to follow in the real environment</li>
+<li>whether computation and replanning behavior fit your AMR throughput requirements</li>
+</ol>
+<hr />
+<h2 id="section-a-comparison-setup">Section A — Comparison Setup</h2>
+<p>Assume a differential-drive AMR in a warehouse map with these properties:</p>
+<ul>
+<li>narrow aisles: <code>1.2 m</code> to <code>1.6 m</code></li>
+<li>frequent long straight segments</li>
+<li>some 90-degree end-of-aisle turns</li>
+<li>occasional blocked aisle requiring reroute</li>
+<li>moderate CPU budget on the robot computer</li>
+</ul>
+<p>You are comparing three planner candidates:</p>
+<ul>
+<li><code>NavFn</code></li>
+<li><code>Smac 2D</code></li>
+<li><code>Smac Hybrid-A*</code></li>
+</ul>
+<h3 id="task-a1-hypothesis-table">Task A1 — Hypothesis Table</h3>
+<p>Fill in the table before looking at any results.</p>
+<table>
+<thead>
+<tr>
+<th>Planner</th>
+<th>What you expect it to do well</th>
+<th>What might go wrong</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>NavFn</code></td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td><code>Smac 2D</code></td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td><code>Smac Hybrid-A*</code></td>
+<td>?</td>
+<td>?</td>
+</tr>
+</tbody>
+</table>
+<details><summary>Answer guidance</summary>
+
+Strong answers usually predict:
+
+- `NavFn`: simple baseline behavior and low conceptual overhead, but possibly less path realism
+- `Smac 2D`: strong modern grid planning for structured maps, but still dependent on good costmaps
+- `Smac Hybrid-A*`: better orientation-aware route realism, but more compute and potentially more tuning burden than the platform actually needs
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-b-compare-results">Section B — Compare Results</h2>
+<p>Use your own runs or this sample result set.</p>
+<table>
+<thead>
+<tr>
+<th>Planner</th>
+<th>Path length</th>
+<th>Min obstacle clearance</th>
+<th>Mean planning latency</th>
+<th>Controller followability note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>NavFn</code></td>
+<td><code>18.4 m</code></td>
+<td><code>0.19 m</code></td>
+<td><code>18 ms</code></td>
+<td>sharp corner entry at aisle exit</td>
+</tr>
+<tr>
+<td><code>Smac 2D</code></td>
+<td><code>18.9 m</code></td>
+<td><code>0.27 m</code></td>
+<td><code>31 ms</code></td>
+<td>smoother centerline behavior</td>
+</tr>
+<tr>
+<td><code>Smac Hybrid-A*</code></td>
+<td><code>19.8 m</code></td>
+<td><code>0.29 m</code></td>
+<td><code>78 ms</code></td>
+<td>most realistic turning shape, but longer route</td>
+</tr>
+</tbody>
+</table>
+<h3 id="task-b1-interpret-the-tradeoff">Task B1 — Interpret the Tradeoff</h3>
+<p><strong>Questions:</strong></p>
+<ol>
+<li>Which planner appears best if you optimize only for planning latency?</li>
+<li>Which planner appears best if you optimize for controller followability in tight aisles?</li>
+<li>Why might the longest path still be the operationally best path?</li>
+</ol>
+<details><summary>Answer guidance</summary>
+
+Latency alone favors `NavFn`. Followability and clearance lean toward `Smac 2D` or `Smac Hybrid-A*`. The longest path can still be best if it reduces oscillation, recoveries, or near-obstacle behavior enough to improve end-to-end mission reliability.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h3 id="task-b2-root-cause-discipline">Task B2 — Root-Cause Discipline</h3>
+<p>Suppose <code>NavFn</code> often returns no path in one specific aisle, while <code>Smac 2D</code> usually succeeds.</p>
+<p><strong>Questions:</strong></p>
+<ol>
+<li>Why is &ldquo;<code>NavFn</code> is bad&rdquo; still an incomplete conclusion?</li>
+<li>What costmap or map-quality checks would you run before recommending a planner swap?</li>
+<li>What evidence would make a planner change defensible anyway?</li>
+</ol>
+<details><summary>Answer guidance</summary>
+
+A planner difference may be real, but you still need to prove that the world model is stable and legal. Costmap inflation, unknown-space policy, stale obstacles, or map discretization can all masquerade as planner weakness. A planner change becomes defensible when repeated evidence shows that, under the same trustworthy world model, one planner consistently produces safer or more trackable paths for the robot's operating geometry.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-c-planner-selection-memo">Section C — Planner Selection Memo</h2>
+<p>Write a short recommendation for this product scenario:</p>
+<div class="highlight"><pre><span></span><code>Robot: differential-drive warehouse AMR
+Requirement: high throughput, low recovery frequency, no need for car-like reverse maneuvers
+Constraint: compute headroom is limited because perception and fleet comms share the same computer
+</code></pre></div>
+
+<p>Your memo must include:</p>
+<ol>
+<li>selected planner</li>
+<li>one rejected alternative and why</li>
+<li>the biggest residual risk even after your choice</li>
+<li>one metric you would monitor after rollout</li>
+</ol>
+<details><summary>Answer guidance</summary>
+
+Many learners will land on `Smac 2D` as the best balance here, but a strong memo can defend another option if the reasoning is coherent. The important part is explicit tradeoffs: computational budget, route realism, controller compatibility, and failure rate in narrow aisles.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-d-replanning-under-change">Section D — Replanning Under Change</h2>
+<p>Now assume a forklift blocks the nominal route halfway through execution.</p>
+<p><strong>Questions:</strong></p>
+<ol>
+<li>What planner behavior matters more now than initial path optimality?</li>
+<li>Why is replanning performance a system property, not only a planner property?</li>
+<li>What other Nav2 surfaces could make a good planner look bad during this event?</li>
+</ol>
+<details><summary>Answer guidance</summary>
+
+The key behavior becomes resilient replanning under an updated costmap. This is not just the planner's job: costmap freshness, TF timing, BT replan cadence, and controller ability to accept updated paths all matter. A planner can look bad if the world model is stale or if the local controller fails on a good reroute.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-e-amr-failure-pattern-reflection">Section E — AMR Failure Pattern Reflection</h2>
+<p>Answer each in 3 to 4 sentences.</p>
+<p><strong>E1.</strong> When does a planner with more realistic kinematics become unnecessary complexity for an AMR team?</p>
+<p><strong>E2.</strong> Why should planner evaluation include controller followability instead of judging only the path shape in RViz?</p>
+<p><strong>E3.</strong> If operations report that the robot &ldquo;chooses weird routes,&rdquo; what evidence would help you decide whether the planner or the costmap representation is the real problem?</p>
+<details><summary>Answer guidance</summary>
+
+Strong answers mention compute budget, actual vehicle constraints, and the danger of solving the wrong layer. A path that looks strange in RViz may still be rational under the encoded cost field. That means costmap semantics and inflation must be audited before blaming the planner alone.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="deliverable-template">Deliverable Template</h2>
+<div class="highlight"><pre><span></span><code>Environment or dataset:
+
+Planners compared:
+
+Metrics recorded:
+- path length:
+- clearance:
+- latency:
+- followability:
+
+Recommendation:
+
+Why not the alternatives:
+
+Post-rollout watch metric:
+</code></pre></div>
+
+<hr />
+<h2 id="success-criteria">Success Criteria</h2>
+<p>You have completed this lab well if you can:</p>
+<ol>
+<li>compare planners without collapsing costmap and controller issues into planner preference</li>
+<li>justify planner choice for a specific AMR and environment instead of giving a generic answer</li>
+<li>explain why end-to-end mission quality can favor a path that is not shortest in pure geometry</li>
+<li>write a planner recommendation memo that a senior robotics team could actually debate</li>
+</ol>
+            </div>
+        </div>
+
+        <footer class="text-center mt-16 py-6 border-t border-gray-300">
+            <p class="text-gray-500">Robotics Learning Resources</p>
+        </footer>
+    </div>
+</body>
+</html>

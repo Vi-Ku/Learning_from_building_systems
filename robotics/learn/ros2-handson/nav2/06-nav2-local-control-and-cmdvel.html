@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>06 — Nav2 Local Control and `/cmd_vel` - Learning From Building Systems</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .card {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        /* Markdown content styling */
+        .md-content h1 { font-size: 2rem; font-weight: 700; color: #111827; margin-top: 2rem; margin-bottom: 1rem; }
+        .md-content h2 { font-size: 1.5rem; font-weight: 600; color: #1f2937; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; }
+        .md-content h3 { font-size: 1.25rem; font-weight: 600; color: #374151; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+        .md-content h4 { font-size: 1.1rem; font-weight: 600; color: #4b5563; margin-top: 1.25rem; margin-bottom: 0.5rem; }
+        .md-content p { margin-bottom: 1rem; line-height: 1.75; color: #374151; }
+        .md-content ul { list-style: disc; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content ol { list-style: decimal; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content li { margin-bottom: 0.35rem; line-height: 1.6; }
+        .md-content code {
+            background-color: #f3f4f6; padding: 0.15rem 0.4rem; border-radius: 0.25rem;
+            font-size: 0.875rem; font-family: 'Fira Code', 'Courier New', monospace; color: #be185d;
+        }
+        .md-content pre {
+            background-color: #1f2937; color: #e5e7eb; padding: 1rem; border-radius: 0.5rem;
+            overflow-x: auto; margin-bottom: 1.25rem; font-size: 0.85rem; line-height: 1.6;
+        }
+        .md-content pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+        .md-content blockquote {
+            border-left: 4px solid #6366f1; background: #eef2ff; padding: 0.75rem 1rem;
+            margin-bottom: 1rem; border-radius: 0 0.5rem 0.5rem 0; color: #374151;
+        }
+        .md-content table { width: 100%; border-collapse: collapse; margin-bottom: 1.25rem; }
+        .md-content th { background: #f9fafb; padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; text-align: left; font-weight: 600; font-size: 0.875rem; }
+        .md-content td { padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; font-size: 0.875rem; }
+        .md-content tr:hover { background-color: #f9fafb; }
+        .md-content hr { border: 0; border-top: 1px solid #e5e7eb; margin: 1.5rem 0; }
+        .md-content strong { font-weight: 600; }
+        .md-content a { color: #2563eb; text-decoration: underline; }
+        .md-content a:hover { color: #1d4ed8; }
+        .md-content img { max-width: 100%; border-radius: 0.5rem; margin: 1rem 0; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-4xl">
+        <a href="index.html" class="text-violet-600 hover:text-violet-800 mb-4 inline-block">&larr; Back to Nav2</a>
+
+        <div class="bg-white rounded-xl shadow-md p-6 sm:p-8 md:p-10">
+            <div class="md-content">
+<h1 id="06-nav2-local-control-and-cmd_vel">06 — Nav2 Local Control and <code>/cmd_vel</code></h1>
+<h2 id="how-controller-plugins-velocity-shaping-and-downstream-command-contracts-determine-real-amr-motion-quality">How controller plugins, velocity shaping, and downstream command contracts determine real AMR motion quality</h2>
+<p><strong>Prerequisite:</strong> <a href="05-nav2-global-planning.html">05 — Nav2 Global Planning</a>, <a href="04-nav2-costmaps-and-layers.html">04 — Nav2 Costmaps And Layers</a>, <a href="01-nav2-system-architecture.html">01 — Nav2 System Architecture</a>
+<strong>Unlocks:</strong> Cleaner controller selection, faster motion-quality diagnosis, better docking approaches, fewer oscillation and slowdown incidents in narrow aisles</p>
+<hr />
+<h2 id="why-should-i-care-context">Why Should I Care? (Context)</h2>
+<p>Most field complaints about Nav2 are not really about planning. They sound like this instead:</p>
+<ol>
+<li>the robot corners too wide and clips aisle margins</li>
+<li>the robot slows too early and kills throughput</li>
+<li>the robot oscillates near the goal and then times out</li>
+<li>the robot follows the path in RViz but the real base looks jerky</li>
+<li>docking approach looks hesitant, unstable, or over-conservative</li>
+</ol>
+<p>Those are local-control and command-chain problems.</p>
+<p>The global planner answers &ldquo;where should I go?&rdquo;
+The controller answers &ldquo;what velocity command is safe and useful right now?&rdquo;</p>
+<p>If you cannot separate controller behavior from path quality, localization quality, and downstream velocity handling, every motion problem becomes random parameter fiddling.</p>
+<hr />
+<h2 id="part-1-what-local-control-actually-owns">PART 1 — WHAT LOCAL CONTROL ACTUALLY OWNS</h2>
+<hr />
+<h2 id="11-the-controllers-job">1.1 The Controller&rsquo;s Job</h2>
+<p>The controller consumes:</p>
+<ul>
+<li>the current path</li>
+<li>current robot pose and velocity</li>
+<li>local costmap state</li>
+<li>controller parameters</li>
+</ul>
+<p>and produces a motion command, typically a <code>geometry_msgs/Twist</code>.</p>
+<p>Conceptually:</p>
+<div class="highlight"><pre><span></span><code>global path + current pose + local obstacles + velocity limits
+    -&gt; controller_server
+    -&gt; /cmd_vel or intermediate velocity topic
+    -&gt; smoother / safety / base controller
+    -&gt; wheel motion
+</code></pre></div>
+
+<p>The controller does not own mission policy, localization generation, or wheel-level control. It sits in the middle and is judged by the quality of the whole chain.</p>
+<hr />
+<h2 id="12-motion-quality-is-a-stack-not-a-single-knob">1.2 Motion Quality Is a Stack, Not a Single Knob</h2>
+<p>Poor motion quality can come from any of these layers:</p>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Typical symptom</th>
+<th>Common false accusation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Global path quality</td>
+<td>path enters corners badly or hugs shelves</td>
+<td>&ldquo;DWB is bad&rdquo;</td>
+</tr>
+<tr>
+<td>Localization</td>
+<td>path tracking looks noisy or unstable near goal</td>
+<td>&ldquo;RPP lookahead is wrong&rdquo;</td>
+</tr>
+<tr>
+<td>Local controller</td>
+<td>oscillation, corner cutting, sluggish approach</td>
+<td>&ldquo;planner is wrong&rdquo;</td>
+</tr>
+<tr>
+<td>Velocity smoother</td>
+<td>stop-start motion, delayed acceleration</td>
+<td>&ldquo;controller is indecisive&rdquo;</td>
+</tr>
+<tr>
+<td>Safety or base control</td>
+<td>command clipping or zeroing</td>
+<td>&ldquo;Nav2 stopped publishing&rdquo;</td>
+</tr>
+</tbody>
+</table>
+<p>Production rule: before tuning controller parameters, prove the command path from controller output to wheel motion is intact and unsurprising.</p>
+<hr />
+<h2 id="13-the-cmd_vel-contract">1.3 The <code>/cmd_vel</code> Contract</h2>
+<p>In many AMRs, Nav2 does not talk to the motors directly.</p>
+<p>Typical chain:</p>
+<div class="highlight"><pre><span></span><code>controller_server -&gt; /cmd_vel_nav
+velocity_smoother -&gt; /cmd_vel
+collision monitor / safety layer -&gt; filtered command
+base controller -&gt; wheel commands
+</code></pre></div>
+
+<p>If one of those stages rewrites, delays, or clips commands, the robot can look like it has a controller problem when it actually has a downstream policy problem.</p>
+<p>Check all of these before blaming the controller:</p>
+<ul>
+<li>is the published command rate stable?</li>
+<li>does another node overwrite the same topic?</li>
+<li>are linear and angular limits clipped downstream?</li>
+<li>does a safety layer hold zero velocity because of stale observations?</li>
+<li>does the base reject tiny angular commands because of deadband?</li>
+</ul>
+<hr />
+<h2 id="part-2-dwb-sample-score-pick">PART 2 — DWB: SAMPLE, SCORE, PICK</h2>
+<hr />
+<h2 id="21-the-dwb-mental-model">2.1 The DWB Mental Model</h2>
+<p>DWB samples candidate velocity commands, simulates short trajectory rollouts, scores them with critics, and picks the best legal option.</p>
+<p>Think of it as:</p>
+<div class="highlight"><pre><span></span><code>generate candidate twists
+    -&gt; simulate short forward trajectories
+    -&gt; score each trajectory with critics
+    -&gt; reject unsafe ones
+    -&gt; publish best remaining command
+</code></pre></div>
+
+<p>This makes DWB flexible and debuggable, but also sensitive to critic balance.</p>
+<hr />
+<h2 id="22-what-the-critics-are-really-doing">2.2 What the Critics Are Really Doing</h2>
+<p>Different critic sets vary by configuration, but the common ideas are stable:</p>
+<ul>
+<li>obstacle critics punish trajectories that get too close to obstacles</li>
+<li>path alignment critics reward staying near the planned path</li>
+<li>goal alignment critics reward pointing toward the goal or goal heading</li>
+<li>forward-motion preferences reward decisive progress instead of dithering</li>
+<li>rotate-to-goal logic handles final heading alignment differently from path pursuit</li>
+</ul>
+<p>This is why DWB can look brilliant in one corridor and terrible in another. The chosen command is a weighted compromise between several partial truths.</p>
+<hr />
+<h2 id="23-classic-dwb-failure-patterns">2.3 Classic DWB Failure Patterns</h2>
+<table>
+<thead>
+<tr>
+<th>Field symptom</th>
+<th>Likely driver</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>robot oscillates left-right in open space</td>
+<td>competing critics, noisy pose, weak forward preference</td>
+</tr>
+<tr>
+<td>robot hugs one shelf edge</td>
+<td>path or obstacle critic balance too weak or footprint/inflation mismatch</td>
+</tr>
+<tr>
+<td>robot stalls before entering a narrow aisle</td>
+<td>obstacle scoring too conservative or footprint too large upstream</td>
+</tr>
+<tr>
+<td>robot rotates too much near goal</td>
+<td>goal heading logic and rotate-to-goal behavior dominate too early</td>
+</tr>
+<tr>
+<td>robot makes tiny indecisive commands</td>
+<td>sample resolution, critic balance, or downstream deadband</td>
+</tr>
+</tbody>
+</table>
+<p>Do not read those as one-to-one parameter names. They are diagnosis categories first.</p>
+<hr />
+<h2 id="24-when-dwb-is-a-strong-fit">2.4 When DWB Is a Strong Fit</h2>
+<p>DWB is often a good fit when:</p>
+<ul>
+<li>the platform is differential drive or omni and the environment is structured</li>
+<li>you want interpretable local behavior with critic-based tradeoffs</li>
+<li>you need direct control over obstacle clearance versus path adherence</li>
+<li>you want a controller that can be tuned without changing path semantics globally</li>
+</ul>
+<p>It is less pleasant when the team wants cargo-cult defaults with no appetite for understanding critic interactions.</p>
+<hr />
+<h2 id="part-3-regulated-pure-pursuit">PART 3 — REGULATED PURE PURSUIT</h2>
+<hr />
+<h2 id="31-the-rpp-mental-model">3.1 The RPP Mental Model</h2>
+<p>Regulated Pure Pursuit follows the path by choosing a lookahead point and generating curvature toward it, then regulating speed according to path geometry, obstacle proximity, and approach state.</p>
+<p>Conceptually:</p>
+<div class="highlight"><pre><span></span><code>pick lookahead point on path
+    -&gt; compute curvature toward it
+    -&gt; scale linear speed based on path shape and constraints
+    -&gt; slow down near goal, sharp turns, or nearby obstacles
+</code></pre></div>
+
+<p>RPP often feels smoother and easier to reason about for aisle following and longer continuous motion.</p>
+<hr />
+<h2 id="32-why-teams-like-rpp">3.2 Why Teams Like RPP</h2>
+<p>Common reasons:</p>
+<ul>
+<li>path following can feel more natural and less twitchy</li>
+<li>lookahead gives a direct handle on smoothness versus aggressiveness</li>
+<li>approach slowdown and curvature regulation can produce good warehouse behavior quickly</li>
+<li>tuning often maps better to operator intuition than a large critic set</li>
+</ul>
+<p>This does not mean it is universally better. It means its mental model is closer to &ldquo;follow the path cleanly&rdquo; than &ldquo;score many tiny trajectory samples.&rdquo;</p>
+<hr />
+<h2 id="33-common-rpp-failure-patterns">3.3 Common RPP Failure Patterns</h2>
+<table>
+<thead>
+<tr>
+<th>Field symptom</th>
+<th>Likely driver</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>corner cutting near shelves</td>
+<td>lookahead too large, path too coarse, localization offset</td>
+</tr>
+<tr>
+<td>jerky low-speed docking approach</td>
+<td>lookahead too short, poor downstream velocity smoothing, base deadband</td>
+</tr>
+<tr>
+<td>over-conservative slowdown everywhere</td>
+<td>regulation too strong or obstacle/cost scaling too defensive</td>
+</tr>
+<tr>
+<td>overshoot on final heading</td>
+<td>approach logic weak, goal checker mismatch, poor velocity floor handling</td>
+</tr>
+<tr>
+<td>good aisle following but weak tight-turn entry</td>
+<td>lookahead and curvature settings not matched to footprint and path shape</td>
+</tr>
+</tbody>
+</table>
+<p>RPP frequently exposes path-quality problems more clearly because it tries to follow path geometry consistently.</p>
+<hr />
+<h2 id="34-when-rpp-is-a-strong-fit">3.4 When RPP Is a Strong Fit</h2>
+<p>RPP is often attractive when:</p>
+<ul>
+<li>the path geometry is reasonably clean</li>
+<li>the robot mainly needs smooth, continuous forward motion</li>
+<li>you care about aisle flow and predictable approach behavior</li>
+<li>the team wants fewer interacting scoring terms than DWB</li>
+</ul>
+<p>It is not a magic answer for bad localization, bad paths, or downstream command clipping.</p>
+<hr />
+<h2 id="part-4-motion-quality-is-more-than-the-controller">PART 4 — MOTION QUALITY IS MORE THAN THE CONTROLLER</h2>
+<hr />
+<h2 id="41-velocity-smoothers-matter">4.1 Velocity Smoothers Matter</h2>
+<p>A velocity smoother can improve jerk and protect the base, but it can also hide the controller&rsquo;s true intent.</p>
+<p>Possible outcomes:</p>
+<ul>
+<li>controller publishes crisp commands, smoother makes them physically reasonable</li>
+<li>controller publishes decisive turns, smoother attenuates them into sluggish motion</li>
+<li>controller publishes tiny corrections, smoother plus motor deadband erases them entirely</li>
+</ul>
+<p>If motion is poor, compare the controller output topic and the final base command topic before tuning the controller itself.</p>
+<hr />
+<h2 id="42-the-base-controller-and-deadbands">4.2 The Base Controller and Deadbands</h2>
+<p>Many bases ignore very small linear or angular commands.</p>
+<p>That creates a nasty pattern:</p>
+<ol>
+<li>Nav2 publishes small corrective twists</li>
+<li>the base does not move enough to satisfy progress</li>
+<li>progress checker thinks the robot is stuck</li>
+<li>recoveries trigger even though the controller was trying to work</li>
+</ol>
+<p>This is not a progress-checker bug. It is a control-chain contract bug.</p>
+<hr />
+<h2 id="43-path-quality-still-matters">4.3 Path Quality Still Matters</h2>
+<p>No local controller rescues a globally bad path for free.</p>
+<p>Examples:</p>
+<ul>
+<li>if the path enters a rack corner too tightly, DWB and RPP may both behave badly for different reasons</li>
+<li>if the planner produces stair-step heading changes, the local controller may look unstable even when tuned reasonably</li>
+<li>if inflation collapses corridor width, the controller may slow or abort for valid safety reasons</li>
+</ul>
+<p>Always ask whether the controller is failing on a bad request.</p>
+<hr />
+<h2 id="part-5-diagnosing-motion-quality-in-the-field">PART 5 — DIAGNOSING MOTION QUALITY IN THE FIELD</h2>
+<hr />
+<h2 id="51-symptom-to-cause-separation">5.1 Symptom-to-Cause Separation</h2>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>First thing to verify</th>
+<th>If verified, next suspect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>oscillation in open aisle</td>
+<td>localization smoothness and heading noise</td>
+<td>controller critic/lookahead tuning</td>
+</tr>
+<tr>
+<td>robot tracks path in RViz but not on floor</td>
+<td>downstream <code>/cmd_vel</code> chain</td>
+<td>base deadband or safety layer</td>
+</tr>
+<tr>
+<td>too slow near obstacles</td>
+<td>local costmap/inflation realism</td>
+<td>controller regulation or critics</td>
+</tr>
+<tr>
+<td>overshoot near goal</td>
+<td>goal checker tolerances and approach mode</td>
+<td>final heading control parameters</td>
+</tr>
+<tr>
+<td>repeated stuck detection</td>
+<td>real motion at wheel/base layer</td>
+<td>progress checker thresholds</td>
+</tr>
+</tbody>
+</table>
+<p>The order matters. Do not start from parameters if the robot&rsquo;s actual motion disagrees with commanded motion.</p>
+<hr />
+<h2 id="52-a-minimal-diagnostic-flow">5.2 A Minimal Diagnostic Flow</h2>
+<p>When a robot &ldquo;moves badly,&rdquo; do this in order:</p>
+<ol>
+<li>inspect the global path for obvious geometric nonsense</li>
+<li>inspect localization stability on the same run</li>
+<li>compare controller output with final base command</li>
+<li>inspect local costmap around the moment of hesitation</li>
+<li>only then tune controller parameters</li>
+</ol>
+<p>This is the shortest path to root cause on most AMR incidents.</p>
+<hr />
+<h2 id="53-tight-turns-aisle-entry-and-docking-are-different-problems">5.3 Tight Turns, Aisle Entry, and Docking Are Different Problems</h2>
+<p>Do not tune for them as if they are identical.</p>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Dominant concern</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>tight turn in aisle network</td>
+<td>curvature, footprint clearance, path shape</td>
+</tr>
+<tr>
+<td>aisle entry from open space</td>
+<td>heading capture without over-slowing</td>
+</tr>
+<tr>
+<td>final docking approach</td>
+<td>slow-speed stability, goal checking, downstream deadband</td>
+</tr>
+</tbody>
+</table>
+<p>One controller can handle all three, but the validation cases must stay separate.</p>
+<hr />
+<h2 id="part-6-selection-and-tuning-checklists">PART 6 — SELECTION AND TUNING CHECKLISTS</h2>
+<hr />
+<h2 id="61-dwb-vs-rpp-decision-checklist">6.1 DWB vs RPP Decision Checklist</h2>
+<p>Choose DWB when:</p>
+<ul>
+<li>you want explicit trajectory scoring with interpretable tradeoffs</li>
+<li>obstacle clearance versus path adherence is the main local challenge</li>
+<li>the team can actually reason about critic balance</li>
+</ul>
+<p>Choose RPP when:</p>
+<ul>
+<li>smooth path following is the primary need</li>
+<li>the environment is aisle-heavy and path geometry is reliable</li>
+<li>the team wants tuning centered around lookahead, curvature, and regulation behavior</li>
+</ul>
+<p>If neither controller looks good quickly, do not assume both are bad. Re-check path and localization contracts.</p>
+<hr />
+<h2 id="62-safe-tuning-order">6.2 Safe Tuning Order</h2>
+<p>Use this order instead of changing everything at once:</p>
+<ol>
+<li>prove localization is stable enough for local control</li>
+<li>prove the path is geometrically sane for the footprint</li>
+<li>prove the final command path to the base is honest</li>
+<li>tune one controller family at a time</li>
+<li>validate separately on open space, tight aisles, and goal approach</li>
+</ol>
+<p>This avoids cargo-cult parameter piles.</p>
+<hr />
+<h2 id="63-what-good-looks-like">6.3 What Good Looks Like</h2>
+<p>For a production AMR, good local control usually means:</p>
+<ul>
+<li>stable aisle tracking without shelf-hugging</li>
+<li>predictable speed reduction near obstacles, not random hesitation</li>
+<li>smooth final approach without false stuck detection</li>
+<li>recoveries triggered rarely and for understandable reasons</li>
+<li>similar behavior across repeated runs of the same route</li>
+</ul>
+<p>If the same route looks different every run, suspect localization or world-model instability before tuning more.</p>
+<hr />
+<h2 id="part-7-amr-failure-patterns-to-remember">PART 7 — AMR FAILURE PATTERNS TO REMEMBER</h2>
+<hr />
+<h2 id="71-the-five-fastest-misdiagnoses">7.1 The Five Fastest Misdiagnoses</h2>
+<ol>
+<li>blaming DWB when the path is already too close to obstacles</li>
+<li>blaming RPP when <code>map -&gt; odom -&gt; base_link</code> timing is unstable</li>
+<li>blaming the planner when the velocity smoother is the real bottleneck</li>
+<li>blaming progress checking when the base ignores tiny commands</li>
+<li>blaming Nav2 when a safety layer zeroes velocity downstream</li>
+</ol>
+<p>If you remember those five, you will avoid a large fraction of useless controller retuning.</p>
+<hr />
+<h2 id="72-senior-interview-version">7.2 Senior Interview Version</h2>
+<p>If asked how to debug poor Nav2 motion quality on an AMR, a strong answer separates:</p>
+<ul>
+<li>path quality</li>
+<li>localization quality</li>
+<li>controller algorithm choice</li>
+<li>command-chain integrity</li>
+<li>base and safety behavior</li>
+</ul>
+<p>If you jump straight to &ldquo;I would tune DWB critics,&rdquo; that answer is incomplete.</p>
+<hr />
+<h2 id="next-lesson">Next Lesson</h2>
+<p>Continue to <a href="07-nav2-localization-odom-amcl-ekf.html">07 — Nav2 Localization Odom Amcl Ekf</a>.
+That lesson explains why many controller and planner complaints are actually localization and TF contract failures upstream.</p>
+            </div>
+        </div>
+
+        <footer class="text-center mt-16 py-6 border-t border-gray-300">
+            <p class="text-gray-500">Robotics Learning Resources</p>
+        </footer>
+    </div>
+</body>
+</html>

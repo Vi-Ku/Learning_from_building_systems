@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exercise08 — Zones, Waypoints, and Mission Layering - Learning From Building Systems</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .card {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        /* Markdown content styling */
+        .md-content h1 { font-size: 2rem; font-weight: 700; color: #111827; margin-top: 2rem; margin-bottom: 1rem; }
+        .md-content h2 { font-size: 1.5rem; font-weight: 600; color: #1f2937; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; }
+        .md-content h3 { font-size: 1.25rem; font-weight: 600; color: #374151; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+        .md-content h4 { font-size: 1.1rem; font-weight: 600; color: #4b5563; margin-top: 1.25rem; margin-bottom: 0.5rem; }
+        .md-content p { margin-bottom: 1rem; line-height: 1.75; color: #374151; }
+        .md-content ul { list-style: disc; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content ol { list-style: decimal; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content li { margin-bottom: 0.35rem; line-height: 1.6; }
+        .md-content code {
+            background-color: #f3f4f6; padding: 0.15rem 0.4rem; border-radius: 0.25rem;
+            font-size: 0.875rem; font-family: 'Fira Code', 'Courier New', monospace; color: #be185d;
+        }
+        .md-content pre {
+            background-color: #1f2937; color: #e5e7eb; padding: 1rem; border-radius: 0.5rem;
+            overflow-x: auto; margin-bottom: 1.25rem; font-size: 0.85rem; line-height: 1.6;
+        }
+        .md-content pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+        .md-content blockquote {
+            border-left: 4px solid #6366f1; background: #eef2ff; padding: 0.75rem 1rem;
+            margin-bottom: 1rem; border-radius: 0 0.5rem 0.5rem 0; color: #374151;
+        }
+        .md-content table { width: 100%; border-collapse: collapse; margin-bottom: 1.25rem; }
+        .md-content th { background: #f9fafb; padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; text-align: left; font-weight: 600; font-size: 0.875rem; }
+        .md-content td { padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; font-size: 0.875rem; }
+        .md-content tr:hover { background-color: #f9fafb; }
+        .md-content hr { border: 0; border-top: 1px solid #e5e7eb; margin: 1.5rem 0; }
+        .md-content strong { font-weight: 600; }
+        .md-content a { color: #2563eb; text-decoration: underline; }
+        .md-content a:hover { color: #1d4ed8; }
+        .md-content img { max-width: 100%; border-radius: 0.5rem; margin: 1rem 0; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-4xl">
+        <a href="../index.html" class="text-violet-600 hover:text-violet-800 mb-4 inline-block">&larr; Back to Nav2</a>
+
+        <div class="bg-white rounded-xl shadow-md p-6 sm:p-8 md:p-10">
+            <div class="md-content">
+<!-- markdownlint-disable MD033 -->
+
+<h1 id="exercise08-zones-waypoints-and-mission-layering">Exercise08 — Zones, Waypoints, and Mission Layering</h1>
+<h2 id="companion-exercises-for-04-nav2-costmaps-and-layers-09-nav2-waypoints-docking-zones-and-missions-and-12-nav2-amr-failure-patterns-and-capstone">Companion exercises for <a href="../04-nav2-costmaps-and-layers.html">04 — Nav2 Costmaps And Layers</a>, <a href="../09-nav2-waypoints-docking-zones-and-missions.html">09 — Nav2 Waypoints Docking Zones And Missions</a>, and <a href="../12-nav2-amr-failure-patterns-and-capstone.html">12 — Nav2 Amr Failure Patterns And Capstone</a></h2>
+<p><strong>Estimated time:</strong> 90 to 115 minutes<br />
+<strong>Prerequisite lessons:</strong> <a href="../04-nav2-costmaps-and-layers.html">04 — Nav2 Costmaps And Layers</a>, <a href="../08-nav2-recoveries-progress-and-goal-checkers.html">08 — Nav2 Recoveries Progress And Goal Checkers</a>, <a href="../09-nav2-waypoints-docking-zones-and-missions.html">09 — Nav2 Waypoints Docking Zones And Missions</a>, <a href="../12-nav2-amr-failure-patterns-and-capstone.html">12 — Nav2 Amr Failure Patterns And Capstone</a></p>
+<p><strong>Mode options:</strong></p>
+<ul>
+<li><strong>Simulation:</strong> model keepout zones, speed zones, and waypoint flows in a warehouse-style map and reason about resulting behavior.</li>
+<li><strong>Bag replay and logs:</strong> inspect route execution, waypoint transitions, and mission outcomes from recorded runs.</li>
+<li><strong>Design review:</strong> use the supplied map semantics and mission rules to decide what belongs in Nav2 versus the higher-level mission system.</li>
+</ul>
+<p><strong>Validation goal:</strong> by the end of this lab you should be able to separate map semantics, route or waypoint execution, and mission orchestration without collapsing them into one oversized navigation configuration.</p>
+<hr />
+<h2 id="overview">Overview</h2>
+<p>AMR teams often overload Nav2 with product logic that belongs elsewhere, while also pushing map semantics into the mission layer where they become inconsistent and hard to audit.</p>
+<p>This lab is about drawing clean boundaries.</p>
+<p>You will decide:</p>
+<ol>
+<li>which rules belong in zones or map semantics</li>
+<li>which belong in waypoint or route execution</li>
+<li>which belong in the mission layer above Nav2</li>
+<li>how those layers should exchange evidence and status in production</li>
+</ol>
+<hr />
+<h2 id="section-a-layer-ownership">Section A — Layer Ownership</h2>
+<p>Assign the primary owner for each requirement.</p>
+<table>
+<thead>
+<tr>
+<th>Requirement</th>
+<th>Primary owner</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>robot must never enter a pedestrian-only corridor</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>robot should slow to <code>0.25 m/s</code> while crossing a docking apron</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>robot must visit pick station A, then staging B, then charger C</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>robot should skip a station if the mission order changes mid-route</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>robot must abort a route if localization confidence drops below threshold</td>
+<td>?</td>
+<td>?</td>
+</tr>
+</tbody>
+</table>
+<p>Possible owners: map semantics or zones, Nav2 waypoint or route execution, mission layer, or shared contract with explicit boundary.</p>
+<details><summary>Answer guidance</summary>
+
+Typical answers:
+
+- never-enter rules belong in keepout or semantic map policy because they are spatial invariants
+- speed reduction in a known physical area often belongs in zone semantics or route policy connected to that zone
+- ordered station visiting is usually mission or waypoint-layer orchestration, not raw planner config
+- order changes are mission logic
+- localization-confidence abort is a cross-layer contract, but mission escalation is usually owned above Nav2
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-b-warehouse-scenario-design">Section B — Warehouse Scenario Design</h2>
+<p>You are given this simplified warehouse map description:</p>
+<ul>
+<li>two long storage aisles with bidirectional travel</li>
+<li>one narrow charging bay entrance</li>
+<li>one human-heavy packing zone near outbound staging</li>
+<li>one keepout area reserved for forklifts</li>
+<li>missions consist of pick, stage, dock, and optional charge tasks</li>
+</ul>
+<h3 id="task-b1-zone-design-table">Task B1 — Zone Design Table</h3>
+<p>Fill in the table.</p>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Zone type or rule</th>
+<th>Intended behavior</th>
+<th>Why it should not be handled as an ad hoc operator convention</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>packing zone</td>
+<td>?</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>charging bay entrance</td>
+<td>?</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>forklift keepout area</td>
+<td>?</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>outbound staging lane</td>
+<td>?</td>
+<td>?</td>
+<td>?</td>
+</tr>
+</tbody>
+</table>
+<details><summary>Answer guidance</summary>
+
+Good answers show that spatial policy should be encoded where it is reviewable and repeatable. Operator conventions are too easy to forget, apply inconsistently, or bypass during automation changes.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h3 id="task-b2-waypoint-plan-critique">Task B2 — Waypoint Plan Critique</h3>
+<p>A teammate proposes this route plan:</p>
+<div class="highlight"><pre><span></span><code>Mission &quot;pick-and-stage&quot;:
+1. Navigate to aisle waypoint A
+2. Navigate to packing zone midpoint
+3. Navigate to staging waypoint B
+4. If blocked, retry step 2 five times
+5. If still blocked, clear costmaps and continue mission
+</code></pre></div>
+
+<p><strong>Questions:</strong></p>
+<ol>
+<li>What is weak about using a fixed midpoint in a human-heavy zone?</li>
+<li>Why is step 4 not enough as a mission policy?</li>
+<li>What information should the mission layer consider before deciding to skip, wait, reroute, or abort?</li>
+</ol>
+<details><summary>Answer guidance</summary>
+
+Strong answers should mention that waypoints inside dynamic human zones may be brittle, and repeated retries hide the distinction between transient congestion and a policy conflict. Good mission policy uses route state, zone semantics, obstruction duration, priority, and mission deadlines.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-c-nav2-versus-mission-logic-decision-work">Section C — Nav2 Versus Mission Logic Decision Work</h2>
+<p>For each feature request, decide whether to implement it primarily in Nav2 configuration, a mission service, or both.</p>
+<table>
+<thead>
+<tr>
+<th>Feature request</th>
+<th>Best home</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>dynamic speed reduction near people-heavy packing area</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>skip non-critical waypoint if queue time exceeds 90 seconds</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>docking alignment with precise final approach behavior</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>route-wide no-entry region for temporary floor maintenance</td>
+<td>?</td>
+<td>?</td>
+</tr>
+<tr>
+<td>battery-based diversion to charger after route completion</td>
+<td>?</td>
+<td>?</td>
+</tr>
+</tbody>
+</table>
+<details><summary>Answer guidance</summary>
+
+This section tests boundary judgment:
+
+- spatial constraints often belong in Nav2 map semantics or zone-aware routing
+- mission priorities, skip logic, and battery policies usually belong above Nav2
+- docking often crosses both layers: Nav2 handles motion and approach semantics, while the mission layer decides when docking is required
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-d-status-and-observability-design">Section D — Status and Observability Design</h2>
+<p>Your operations dashboard currently shows only <code>mission_running</code>, <code>mission_failed</code>, and <code>navigation_failed</code>.</p>
+<h3 id="task-d1-replace-the-status-model">Task D1 — Replace the Status Model</h3>
+<p>Propose six statuses that better separate:</p>
+<ul>
+<li>zone-policy hold</li>
+<li>waypoint execution progress</li>
+<li>route obstruction</li>
+<li>docking-specific behavior</li>
+<li>mission-layer decision wait</li>
+<li>hard navigation failure</li>
+</ul>
+<p>Then answer:</p>
+<ol>
+<li>Why does the current model create poor incident reports?</li>
+<li>Which status transitions should be recorded for later bag or log review?</li>
+</ol>
+<details><summary>Answer guidance</summary>
+
+Good answers recognize that a robot waiting correctly in a speed or human zone is not the same as a route failure. Likewise, waypoint progression and docking alignment should not be flattened into a single generic navigation status.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-e-route-review-without-hardware">Section E — Route Review Without Hardware</h2>
+<p>Use this incident summary.</p>
+<div class="highlight"><pre><span></span><code>Mission: pick station S4 -&gt; packing zone -&gt; outbound staging
+Robot reached S4 successfully.
+Robot slowed in the packing zone as expected.
+Robot then waited 140 seconds behind intermittent human traffic.
+Mission system marked navigation as failed and dispatched a charger mission.
+Operators reported that the robot was behaving safely and should not have abandoned the route.
+</code></pre></div>
+
+<p><strong>Questions:</strong></p>
+<ol>
+<li>Which layer most likely made the wrong decision?</li>
+<li>What evidence suggests Nav2 may have behaved correctly?</li>
+<li>How would you redesign the contract between Nav2 and the mission layer so this incident is classified correctly?</li>
+</ol>
+<details><summary>Answer guidance</summary>
+
+The mission layer is the likely culprit here because the robot appears to have respected zone behavior and traffic conditions rather than suffering a motion failure. The redesign should expose a clear state such as `waiting_for_zone_clearance` or `transient_route_hold` so higher-level logic can distinguish safe delay from true navigation failure.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-f-mission-policy-draft">Section F — Mission Policy Draft</h2>
+<p>Write a short design note covering:</p>
+<ol>
+<li>what spatial rules are encoded in map or zone semantics</li>
+<li>what waypoint sequencing logic lives above Nav2</li>
+<li>how a blocked route is represented back to operations</li>
+<li>when the mission system is allowed to skip, reroute, or abort</li>
+</ol>
+<p>Target length: 12 to 16 lines.</p>
+<details><summary>Answer guidance</summary>
+
+The best notes create crisp boundaries and make the status contract explicit. They avoid phrases like "Nav2 handles the mission" because that blurs ownership and makes future debugging harder.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="section-g-amr-production-reflection">Section G — AMR Production Reflection</h2>
+<p>Answer briefly but concretely.</p>
+<p><strong>G1.</strong> Why is zone semantics a reliability feature, not just a convenience feature?</p>
+<p><strong>G2.</strong> Which kinds of waypoint logic would you refuse to bury inside a Nav2 parameter file?</p>
+<p><strong>G3.</strong> What single dashboard view would help operations understand whether a route is blocked, paused by policy, or actually broken?</p>
+<details><summary>Answer guidance</summary>
+
+Strong answers mention auditability, repeatability, spatial safety rules, and the need to keep product policy visible at the mission layer.
+
+</details>
+
+<ul>
+<li>[ ] Done</li>
+</ul>
+<hr />
+<h2 id="deliverable-template">Deliverable Template</h2>
+<div class="highlight"><pre><span></span><code>Scenario reviewed:
+
+Zone semantics proposed:
+- keepout:
+- speed:
+- staging or docking:
+
+Waypoint or mission decisions:
+- sequence ownership:
+- skip policy:
+- reroute policy:
+
+Status model:
+1.
+2.
+3.
+4.
+5.
+6.
+
+Contract between Nav2 and mission layer:
+
+Open risks:
+</code></pre></div>
+
+<hr />
+<h2 id="success-criteria">Success Criteria</h2>
+<p>You have completed this lab well if you can:</p>
+<ol>
+<li>separate spatial semantics from mission logic without creating gaps in responsibility</li>
+<li>explain what belongs in zones, waypoints, docking behaviors, and higher-level mission policy</li>
+<li>redesign statuses so safe waiting and true navigation failure are not conflated</li>
+<li>make the route and mission contract understandable from logs, bags, or design review alone</li>
+</ol>
+            </div>
+        </div>
+
+        <footer class="text-center mt-16 py-6 border-t border-gray-300">
+            <p class="text-gray-500">Robotics Learning Resources</p>
+        </footer>
+    </div>
+</body>
+</html>

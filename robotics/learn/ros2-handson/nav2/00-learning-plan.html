@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nav2 for AMRs — Mastery Plan - Learning From Building Systems</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .card {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        /* Markdown content styling */
+        .md-content h1 { font-size: 2rem; font-weight: 700; color: #111827; margin-top: 2rem; margin-bottom: 1rem; }
+        .md-content h2 { font-size: 1.5rem; font-weight: 600; color: #1f2937; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; }
+        .md-content h3 { font-size: 1.25rem; font-weight: 600; color: #374151; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+        .md-content h4 { font-size: 1.1rem; font-weight: 600; color: #4b5563; margin-top: 1.25rem; margin-bottom: 0.5rem; }
+        .md-content p { margin-bottom: 1rem; line-height: 1.75; color: #374151; }
+        .md-content ul { list-style: disc; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content ol { list-style: decimal; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content li { margin-bottom: 0.35rem; line-height: 1.6; }
+        .md-content code {
+            background-color: #f3f4f6; padding: 0.15rem 0.4rem; border-radius: 0.25rem;
+            font-size: 0.875rem; font-family: 'Fira Code', 'Courier New', monospace; color: #be185d;
+        }
+        .md-content pre {
+            background-color: #1f2937; color: #e5e7eb; padding: 1rem; border-radius: 0.5rem;
+            overflow-x: auto; margin-bottom: 1.25rem; font-size: 0.85rem; line-height: 1.6;
+        }
+        .md-content pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+        .md-content blockquote {
+            border-left: 4px solid #6366f1; background: #eef2ff; padding: 0.75rem 1rem;
+            margin-bottom: 1rem; border-radius: 0 0.5rem 0.5rem 0; color: #374151;
+        }
+        .md-content table { width: 100%; border-collapse: collapse; margin-bottom: 1.25rem; }
+        .md-content th { background: #f9fafb; padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; text-align: left; font-weight: 600; font-size: 0.875rem; }
+        .md-content td { padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; font-size: 0.875rem; }
+        .md-content tr:hover { background-color: #f9fafb; }
+        .md-content hr { border: 0; border-top: 1px solid #e5e7eb; margin: 1.5rem 0; }
+        .md-content strong { font-weight: 600; }
+        .md-content a { color: #2563eb; text-decoration: underline; }
+        .md-content a:hover { color: #1d4ed8; }
+        .md-content img { max-width: 100%; border-radius: 0.5rem; margin: 1rem 0; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-4xl">
+        <a href="../index.html" class="text-violet-600 hover:text-violet-800 mb-4 inline-block">&larr; Back to ROS 2</a>
+
+        <div class="bg-white rounded-xl shadow-md p-6 sm:p-8 md:p-10">
+            <div class="md-content">
+<h1 id="nav2-for-amrs-mastery-plan">Nav2 for AMRs — Mastery Plan</h1>
+<h2 id="for">For</h2>
+<p>Engineer who already understands basic ROS 2 nodes, TF2, and the high-level Nav2 flow, but wants deep operational ownership of navigation on a real AMR.</p>
+<h2 id="goal">Goal</h2>
+<p>Understand Nav2 end to end: architecture, lifecycle, costmaps, planners, controllers, recovery logic, localization contracts, AMR-specific constraints, debugging, tuning, and extension points.</p>
+<hr />
+<h2 id="why-this-track-exists">Why This Track Exists</h2>
+<p>The current ROS 2 track gives you the architectural overview, but AMR-grade Nav2 work requires a separate layer of depth:</p>
+<ul>
+<li>You need to reason about why a robot stops, oscillates, replans forever, or exhausts recoveries.</li>
+<li>You need to connect TF, localization, costmaps, planners, controllers, and BT execution as one system.</li>
+<li>You need to debug from logs, bags, topics, parameters, and field symptoms, not from theory alone.</li>
+<li>You need the judgment to tune and extend Nav2 for warehouse, factory, and aisle-constrained robots.</li>
+</ul>
+<p>This track is designed for that jump from “I know what Nav2 is” to “I can own Nav2 in production.”</p>
+<hr />
+<h2 id="prerequisites">Prerequisites</h2>
+<ul>
+<li><a href="../01-nodes-topics-actions.html">01 — Nodes Topics Actions</a></li>
+<li><a href="../02-tf2-time-qos.html">02 — Tf2 Time Qos</a></li>
+<li><a href="../03-nav2-architecture.html">03 — Nav2 Architecture</a></li>
+</ul>
+<p>Before starting this track, you should already be comfortable with:</p>
+<ul>
+<li>ROS 2 actions, lifecycle nodes, and parameter files</li>
+<li>TF tree semantics: <code>map -&gt; odom -&gt; base_link -&gt; sensor_frame</code></li>
+<li>Basic costmap, planner, and controller vocabulary</li>
+<li>Reading ROS 2 logs, bag files, and topic graphs</li>
+</ul>
+<hr />
+<h2 id="planned-file-structure">Planned File Structure</h2>
+<div class="highlight"><pre><span></span><code>nav2/
+├── 00-learning-plan.md
+├── 01-nav2-system-architecture.md
+├── 02-nav2-bringup-lifecycle-actions.md
+├── 03-nav2-bt-navigator-and-bt-xml.md
+├── 04-nav2-costmaps-and-layers.md
+├── 05-nav2-global-planning.md
+├── 06-nav2-local-control-and-cmdvel.md
+├── 07-nav2-localization-odom-amcl-ekf.md
+├── 08-nav2-recoveries-progress-and-goal-checkers.md
+├── 09-nav2-waypoints-docking-zones-and-missions.md
+├── 10-nav2-parameters-launch-and-plugin-extension.md
+├── 11-nav2-debugging-observability-and-bag-analysis.md
+├── 12-nav2-amr-failure-patterns-and-capstone.md
+├── 13-nav2-senior-interview-questions.md
+└── exercises/
+    ├── 01-bringup-and-lifecycle.md
+    ├── 02-bt-trace-and-recovery-loop.md
+    ├── 03-costmap-tuning-lab.md
+    ├── 04-planner-comparison-lab.md
+    ├── 05-controller-tuning-lab.md
+    ├── 06-localization-contract-diagnosis.md
+    ├── 07-recovery-policy-design.md
+    ├── 08-zones-waypoints-and-missions.md
+    ├── 09-plugin-extension-lab.md
+    └── 10-amr-debug-capstone.md
+</code></pre></div>
+
+<p>These lesson and exercise files are the planned build-out for this track.
+This page is the roadmap for creating them in order and then studying them.</p>
+<hr />
+<h2 id="time-budget">Time Budget</h2>
+<ul>
+<li>Recommended duration: 8 to 10 weeks</li>
+<li>Suggested load: 4 to 6 hrs/week</li>
+<li>Total depth target: 40 to 55 hours</li>
+</ul>
+<p>This assumes you want both conceptual depth and enough repetition to diagnose Nav2 incidents under pressure.</p>
+<hr />
+<h2 id="track-outcomes">Track Outcomes</h2>
+<p>By the end of the track, you should be able to:</p>
+<ul>
+<li>Explain every major Nav2 server and how they interact during <code>NavigateToPose</code></li>
+<li>Diagnose failures by separating localization, costmap, planner, controller, and BT-policy problems</li>
+<li>Tune a controller and costmap for an AMR in narrow aisles without relying on cargo-cult defaults</li>
+<li>Understand how AMCL, robot localization, wheel odometry, and IMU quality affect Nav2 behavior</li>
+<li>Design recovery policies that match real AMR operating conditions</li>
+<li>Add operational map semantics such as keepout zones, speed zones, waypoint flows, and docking behaviors</li>
+<li>Extend Nav2 with parameters, launch structure, or custom plugins when defaults are insufficient</li>
+</ul>
+<hr />
+<h2 id="weekly-schedule">Weekly Schedule</h2>
+<h3 id="week-1-system-architecture-and-goal-flow">Week 1: System Architecture and Goal Flow</h3>
+<p><strong>Planned lesson:</strong> <a href="01-nav2-system-architecture.html">01 — Nav2 System Architecture</a></p>
+<p><strong>Focus:</strong></p>
+<ul>
+<li>End-to-end flow of a goal through <code>bt_navigator</code>, planner, controller, behavior server, and lifecycle manager</li>
+<li>What Nav2 owns vs what localization, perception, and the rest of the AMR stack own</li>
+<li>How actions, topics, transforms, and parameters meet at runtime</li>
+</ul>
+<p><strong>Hands-on:</strong></p>
+<ul>
+<li>Draw the node graph for a working Nav2 bringup from memory</li>
+<li>Trace one <code>NavigateToPose</code> request from UI or mission layer to <code>/cmd_vel</code></li>
+</ul>
+<p><strong>Planned exercise:</strong></p>
+<ul>
+<li><a href="exercises/01-bringup-and-lifecycle.html">01 — Bringup And Lifecycle</a></li>
+</ul>
+<p><strong>Senior interview focus:</strong></p>
+<ul>
+<li>Explain the full navigation data flow without hand-waving</li>
+<li>Separate navigation orchestration from localization and perception responsibilities</li>
+</ul>
+<h3 id="week-2-bringup-lifecycle-and-action-contracts">Week 2: Bringup, Lifecycle, and Action Contracts</h3>
+<p><strong>Planned lesson:</strong> <a href="02-nav2-bringup-lifecycle-actions.html">02 — Nav2 Bringup Lifecycle Actions</a></p>
+<p><strong>Focus:</strong></p>
+<ul>
+<li>Lifecycle transitions and why partial bringup causes misleading runtime failures</li>
+<li>Action interfaces for <code>NavigateToPose</code>, <code>NavigateThroughPoses</code>, recovery behaviors, and waypoint flows</li>
+<li>Startup sequencing and server dependency ordering</li>
+</ul>
+<p><strong>Hands-on:</strong></p>
+<ul>
+<li>Bring up Nav2 and intentionally break one dependency</li>
+<li>Observe lifecycle states and recover to a clean running system</li>
+</ul>
+<p><strong>Planned exercises:</strong></p>
+<ul>
+<li><a href="exercises/01-bringup-and-lifecycle.html">01 — Bringup And Lifecycle</a></li>
+<li><a href="exercises/02-bt-trace-and-recovery-loop.html">02 — Bt Trace And Recovery Loop</a></li>
+</ul>
+<p><strong>Senior interview focus:</strong></p>
+<ul>
+<li>Explain lifecycle failure modes and what to inspect first in a broken bringup</li>
+</ul>
+<h3 id="week-3-bt-navigator-and-behaviortree-xml">Week 3: BT Navigator and BehaviorTree XML</h3>
+<p><strong>Planned lesson:</strong> <a href="03-nav2-bt-navigator-and-bt-xml.html">03 — Nav2 Bt Navigator And Bt Xml</a></p>
+<p><strong>Focus:</strong></p>
+<ul>
+<li><code>PipelineSequence</code>, <code>RecoveryNode</code>, <code>ReactiveFallback</code>, decorators, blackboard values, replanning cadence</li>
+<li>Default tree behavior vs AMR-customized tree behavior</li>
+<li>When a problem belongs in BT design vs parameters vs a plugin</li>
+</ul>
+<p><strong>Hands-on:</strong></p>
+<ul>
+<li>Walk a default tree tick by tick for success, planner failure, and controller failure</li>
+<li>Modify a recovery ordering for a blocked aisle scenario</li>
+</ul>
+<p><strong>Planned exercises:</strong></p>
+<ul>
+<li><a href="exercises/02-bt-trace-and-recovery-loop.html">02 — Bt Trace And Recovery Loop</a></li>
+<li><a href="exercises/07-recovery-policy-design.html">07 — Recovery Policy Design</a></li>
+</ul>
+<p><strong>Senior interview focus:</strong></p>
+<ul>
+<li>Defend a custom BT recovery design for a warehouse robot under dynamic obstruction</li>
+</ul>
+<h3 id="week-4-costmaps-layers-and-map-semantics">Week 4: Costmaps, Layers, and Map Semantics</h3>
+<p><strong>Planned lesson:</strong> <a href="04-nav2-costmaps-and-layers.html">04 — Nav2 Costmaps And Layers</a></p>
+<p><strong>Focus:</strong></p>
+<ul>
+<li>Global vs local costmaps, static layer, obstacle layer, inflation, footprint, rolling window, observation sources</li>
+<li>Phantom obstacles, stale obstacles, inflated corridors, unknown space policy</li>
+<li>Keepout zones and speed zones for AMR operations</li>
+</ul>
+<p><strong>Hands-on:</strong></p>
+<ul>
+<li>Tune inflation radius and footprint on the same map and compare passability</li>
+<li>Inject a stale obstacle or bad observation source and inspect the resulting costmap</li>
+</ul>
+<p><strong>Planned exercises:</strong></p>
+<ul>
+<li><a href="exercises/03-costmap-tuning-lab.html">03 — Costmap Tuning Lab</a></li>
+<li><a href="exercises/08-zones-waypoints-and-missions.html">08 — Zones Waypoints And Missions</a></li>
+</ul>
+<p><strong>Senior interview focus:</strong></p>
+<ul>
+<li>Explain why a planner says “no path” in an apparently open corridor</li>
+</ul>
+<h3 id="week-5-global-planning">Week 5: Global Planning</h3>
+<p><strong>Planned lesson:</strong> <a href="05-nav2-global-planning.html">05 — Nav2 Global Planning</a></p>
+<p><strong>Focus:</strong></p>
+<ul>
+<li>NavFn vs Smac 2D vs Smac Hybrid-A*</li>
+<li>Kinematic feasibility, unknown space, path quality, compute budget, aisle geometry</li>
+<li>Planner behavior under warehouse-style maps and blocked goals</li>
+</ul>
+<p><strong>Hands-on:</strong></p>
+<ul>
+<li>Compare planner outputs on the same map under different footprint and costmap settings</li>
+<li>Explain when a planner failure is really a costmap failure upstream</li>
+</ul>
+<p><strong>Planned exercise:</strong></p>
+<ul>
+<li><a href="exercises/04-planner-comparison-lab.html">04 — Planner Comparison Lab</a></li>
+</ul>
+<p><strong>Senior interview focus:</strong></p>
+<ul>
+<li>Choose a planner for a differential-drive AMR in a constrained warehouse and defend the choice</li>
+</ul>
+<h3 id="week-6-local-control-velocity-shaping-and-motion-quality">Week 6: Local Control, Velocity Shaping, and Motion Quality</h3>
+<p><strong>Planned lesson:</strong> <a href="06-nav2-local-control-and-cmdvel.html">06 — Nav2 Local Control And Cmdvel</a></p>
+<p><strong>Focus:</strong></p>
+<ul>
+<li>DWB and Regulated Pure Pursuit</li>
+<li>Critics, lookahead, goal tolerances, progress checkers, goal checkers, velocity smoother</li>
+<li>Oscillation, corner cutting, sluggish approach, and over-conservative slowdown</li>
+</ul>
+<p><strong>Hands-on:</strong></p>
+<ul>
+<li>Tune controller behavior on tight turns, aisle entry, and docking approach</li>
+<li>Compare controller behavior before and after parameter changes</li>
+</ul>
+<p><strong>Planned exercise:</strong></p>
+<ul>
+<li><a href="exercises/05-controller-tuning-lab.html">05 — Controller Tuning Lab</a></li>
+</ul>
+<p><strong>Senior interview focus:</strong></p>
+<ul>
+<li>Diagnose whether a motion-quality issue is controller tuning, bad path quality, or bad localization</li>
+</ul>
+<h3 id="week-7-localization-contracts-and-tf-correctness-for-nav2">Week 7: Localization Contracts and TF Correctness for Nav2</h3>
+<p><strong>Planned lesson:</strong> <a href="07-nav2-localization-odom-amcl-ekf.html">07 — Nav2 Localization Odom Amcl Ekf</a></p>
+<p><strong>Focus:</strong></p>
+<ul>
+<li>What Nav2 expects from <code>map</code>, <code>odom</code>, and <code>base_link</code></li>
+<li>AMCL vs <code>robot_localization</code>, wheel odometry, IMU fusion, transform tolerances, and timestamp drift</li>
+<li>Why localization defects masquerade as planning or controller problems</li>
+</ul>
+<p><strong>Hands-on:</strong></p>
+<ul>
+<li>Replay a bag with localization drift and identify downstream Nav2 symptoms</li>
+<li>Diagnose TF lookup failures and stale transform timing</li>
+</ul>
+<p><strong>Planned exercise:</strong></p>
+<ul>
+<li><a href="exercises/06-localization-contract-diagnosis.html">06 — Localization Contract Diagnosis</a></li>
+</ul>
+<p><strong>Senior interview focus:</strong></p>
+<ul>
+<li>Explain what breaks when <code>odom</code> is locally smooth but globally wrong</li>
+</ul>
+<h3 id="week-8-recoveries-goal-checking-and-mission-robustness">Week 8: Recoveries, Goal Checking, and Mission Robustness</h3>
+<p><strong>Planned lesson:</strong> <a href="08-nav2-recoveries-progress-and-goal-checkers.html">08 — Nav2 Recoveries Progress And Goal Checkers</a></p>
+<p><strong>Focus:</strong></p>
+<ul>
+<li>Clear costmaps, spin, backup, wait, retry budgets, progress checker, goal checker</li>
+<li>What recoveries should exist for blocked aisles, temporary humans, phantom obstacles, and stuck robots</li>
+<li>How AMR missions should degrade instead of failing opaquely</li>
+</ul>
+<p><strong>Hands-on:</strong></p>
+<ul>
+<li>Design a recovery chain for three AMR incident patterns</li>
+<li>Explain when to stop retrying and escalate to the higher-level mission system</li>
+</ul>
+<p><strong>Planned exercise:</strong></p>
+<ul>
+<li><a href="exercises/07-recovery-policy-design.html">07 — Recovery Policy Design</a></li>
+</ul>
+<p><strong>Senior interview focus:</strong></p>
+<ul>
+<li>Design a recovery policy that is safe, observable, and operationally useful</li>
+</ul>
+<h3 id="week-9-waypoints-docking-zones-and-amr-mission-features">Week 9: Waypoints, Docking, Zones, and AMR Mission Features</h3>
+<p><strong>Planned lesson:</strong> <a href="09-nav2-waypoints-docking-zones-and-missions.html">09 — Nav2 Waypoints Docking Zones And Missions</a></p>
+<p><strong>Focus:</strong></p>
+<ul>
+<li>Waypoint follower, route execution, docking, semantic map overlays, no-go areas, speed zones</li>
+<li>Mission-layer interactions with Nav2 and when mission bugs look like navigation bugs</li>
+</ul>
+<p><strong>Hands-on:</strong></p>
+<ul>
+<li>Model a warehouse lane policy with zones and speed constraints</li>
+<li>Walk a multi-stop route and reason about what belongs in Nav2 vs the task layer</li>
+</ul>
+<p><strong>Planned exercise:</strong></p>
+<ul>
+<li><a href="exercises/08-zones-waypoints-and-missions.html">08 — Zones Waypoints And Missions</a></li>
+</ul>
+<p><strong>Senior interview focus:</strong></p>
+<ul>
+<li>Explain how you would represent keepout zones, preferred lanes, and docking constraints cleanly</li>
+</ul>
+<h3 id="week-10-extension-observability-and-amr-capstone">Week 10: Extension, Observability, and AMR Capstone</h3>
+<p><strong>Planned lessons:</strong></p>
+<ul>
+<li><a href="10-nav2-parameters-launch-and-plugin-extension.html">10 — Nav2 Parameters Launch And Plugin Extension</a></li>
+<li><a href="11-nav2-debugging-observability-and-bag-analysis.html">11 — Nav2 Debugging Observability And Bag Analysis</a></li>
+<li><a href="12-nav2-amr-failure-patterns-and-capstone.html">12 — Nav2 Amr Failure Patterns And Capstone</a></li>
+<li><a href="13-nav2-senior-interview-questions.html">13 — Nav2 Senior Interview Questions</a></li>
+</ul>
+<p><strong>Focus:</strong></p>
+<ul>
+<li>Parameter layering, launch composition, namespaces, plugin choices, and when to write custom code</li>
+<li>Bag-based diagnosis, topic/TF inspection, action tracing, costmap introspection, and failure pattern triage</li>
+<li>Production scenarios: narrow-aisle aborts, repeated recovery loops, phantom obstacles, stale localization, dynamic pallet intrusion</li>
+</ul>
+<p><strong>Hands-on:</strong></p>
+<ul>
+<li>Run a full capstone RCA from logs, topics, TF, and parameters</li>
+<li>Propose the smallest fix that addresses the real root cause</li>
+</ul>
+<p><strong>Planned exercises:</strong></p>
+<ul>
+<li><a href="exercises/09-plugin-extension-lab.html">09 — Plugin Extension Lab</a></li>
+<li><a href="exercises/10-amr-debug-capstone.html">10 — Amr Debug Capstone</a></li>
+</ul>
+<p><strong>Senior interview focus:</strong></p>
+<ul>
+<li>Debug a field incident with incomplete evidence and justify the first three things you would inspect</li>
+</ul>
+<hr />
+<h2 id="exercise-model">Exercise Model</h2>
+<p>Every module in this track should eventually include three exercise types:</p>
+<ol>
+<li>
+<p><strong>Inspection drill</strong>
+Example: read a BT snippet, costmap config, or topic list and explain what it will do.</p>
+</li>
+<li>
+<p><strong>Hands-on lab</strong>
+Example: run Nav2, tune a parameter, replay a bag, or inspect lifecycle state transitions.</p>
+</li>
+<li>
+<p><strong>AMR diagnosis task</strong>
+Example: use logs and symptoms to determine whether the root cause lives in localization, costmaps, planning, control, or BT logic.</p>
+</li>
+</ol>
+<p>The capstone should combine all three.</p>
+<hr />
+<h2 id="senior-level-interview-categories">Senior-Level Interview Categories</h2>
+<p>The final interview bank should be grouped by category, not by random questions.</p>
+<h3 id="1-system-architecture-and-goal-flow">1. System Architecture and Goal Flow</h3>
+<ul>
+<li>Walk through <code>NavigateToPose</code> end to end</li>
+<li>Explain which node owns which responsibility and what inputs each requires</li>
+</ul>
+<h3 id="2-tf-time-and-localization-correctness">2. TF, Time, and Localization Correctness</h3>
+<ul>
+<li>Explain <code>map</code>, <code>odom</code>, and <code>base_link</code> semantics</li>
+<li>Diagnose transform tolerance and timestamp drift issues</li>
+</ul>
+<h3 id="3-costmaps-and-perception-integration">3. Costmaps and Perception Integration</h3>
+<ul>
+<li>Explain layer composition, stale obstacles, inflation side effects, and observation-source bugs</li>
+</ul>
+<h3 id="4-planner-selection-and-tradeoffs">4. Planner Selection and Tradeoffs</h3>
+<ul>
+<li>Compare NavFn, Smac 2D, and Hybrid-A* for real AMR constraints</li>
+</ul>
+<h3 id="5-controller-tuning-and-motion-quality">5. Controller Tuning and Motion Quality</h3>
+<ul>
+<li>Diagnose oscillation, slowdown, corner cutting, and poor goal convergence</li>
+</ul>
+<h3 id="6-bt-design-and-recovery-policy">6. BT Design and Recovery Policy</h3>
+<ul>
+<li>Decide when a fix belongs in BT XML, parameters, or a plugin</li>
+</ul>
+<h3 id="7-production-debugging">7. Production Debugging</h3>
+<ul>
+<li>Explain how to separate localization faults from planning or control faults quickly</li>
+</ul>
+<h3 id="8-amr-product-constraints">8. AMR Product Constraints</h3>
+<ul>
+<li>Handle speed zones, keepout zones, docking, waypoint missions, and dynamic warehouse traffic</li>
+</ul>
+<h3 id="9-plugin-extension-and-code-ownership">9. Plugin Extension and Code Ownership</h3>
+<ul>
+<li>Decide when to write a custom BT node, planner wrapper, or controller plugin</li>
+</ul>
+<h3 id="10-senior-judgment">10. Senior Judgment</h3>
+<ul>
+<li>Decide what to instrument first during a real navigation incident</li>
+<li>Choose defaults for a new AMR platform and defend the tradeoffs</li>
+</ul>
+<hr />
+<h2 id="suggested-hands-on-environment">Suggested Hands-On Environment</h2>
+<p>Use whichever environment is available, but the track should be designed to work with one of these setups:</p>
+<ul>
+<li>Gazebo or Isaac Sim with a differential-drive warehouse robot</li>
+<li>Recorded AMR bags with TF, odom, scan, costmaps, and Nav2 action traces</li>
+<li>A local Nav2 bringup with maps, lifecycle nodes, and CLI tools</li>
+</ul>
+<p>The exercises should not depend on owning hardware. Hardware-specific tuning can be an optional extension.</p>
+<hr />
+<h2 id="completion-standard">Completion Standard</h2>
+<p>You are done with this track when you can do all of the following without checking references:</p>
+<ul>
+<li>Draw the Nav2 node and server architecture from memory</li>
+<li>Explain why a recovery loop is happening from logs alone</li>
+<li>Read a costmap configuration and predict likely runtime behavior</li>
+<li>Diagnose whether a failure is localization, costmap, planner, controller, or BT policy</li>
+<li>Propose a safe AMR-specific Nav2 tuning change and defend it technically</li>
+<li>Answer senior-level Nav2 interview questions without drifting into generic ROS 2 answers</li>
+</ul>
+<hr />
+<h2 id="next-step">Next Step</h2>
+<p>Start here after finishing the base ROS 2 track by using this roadmap page, then writing or opening the first planned lesson: <a href="01-nav2-system-architecture.html">01 — Nav2 System Architecture</a></p>
+<p>Recommended first reading order inside this subtrack:</p>
+<ol>
+<li><a href="01-nav2-system-architecture.html">01 — Nav2 System Architecture</a></li>
+<li><a href="02-nav2-bringup-lifecycle-actions.html">02 — Nav2 Bringup Lifecycle Actions</a></li>
+<li><a href="03-nav2-bt-navigator-and-bt-xml.html">03 — Nav2 Bt Navigator And Bt Xml</a></li>
+</ol>
+<p>Once those are comfortable, move into costmaps, planning, control, and AMR-specific debugging.</p>
+            </div>
+        </div>
+
+        <footer class="text-center mt-16 py-6 border-t border-gray-300">
+            <p class="text-gray-500">Robotics Learning Resources</p>
+        </footer>
+    </div>
+</body>
+</html>

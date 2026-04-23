@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>08 — Nav2 Recoveries, Progress Checkers, and Goal Checkers - Learning From Building Systems</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .card {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        /* Markdown content styling */
+        .md-content h1 { font-size: 2rem; font-weight: 700; color: #111827; margin-top: 2rem; margin-bottom: 1rem; }
+        .md-content h2 { font-size: 1.5rem; font-weight: 600; color: #1f2937; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; }
+        .md-content h3 { font-size: 1.25rem; font-weight: 600; color: #374151; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+        .md-content h4 { font-size: 1.1rem; font-weight: 600; color: #4b5563; margin-top: 1.25rem; margin-bottom: 0.5rem; }
+        .md-content p { margin-bottom: 1rem; line-height: 1.75; color: #374151; }
+        .md-content ul { list-style: disc; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content ol { list-style: decimal; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content li { margin-bottom: 0.35rem; line-height: 1.6; }
+        .md-content code {
+            background-color: #f3f4f6; padding: 0.15rem 0.4rem; border-radius: 0.25rem;
+            font-size: 0.875rem; font-family: 'Fira Code', 'Courier New', monospace; color: #be185d;
+        }
+        .md-content pre {
+            background-color: #1f2937; color: #e5e7eb; padding: 1rem; border-radius: 0.5rem;
+            overflow-x: auto; margin-bottom: 1.25rem; font-size: 0.85rem; line-height: 1.6;
+        }
+        .md-content pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+        .md-content blockquote {
+            border-left: 4px solid #6366f1; background: #eef2ff; padding: 0.75rem 1rem;
+            margin-bottom: 1rem; border-radius: 0 0.5rem 0.5rem 0; color: #374151;
+        }
+        .md-content table { width: 100%; border-collapse: collapse; margin-bottom: 1.25rem; }
+        .md-content th { background: #f9fafb; padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; text-align: left; font-weight: 600; font-size: 0.875rem; }
+        .md-content td { padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; font-size: 0.875rem; }
+        .md-content tr:hover { background-color: #f9fafb; }
+        .md-content hr { border: 0; border-top: 1px solid #e5e7eb; margin: 1.5rem 0; }
+        .md-content strong { font-weight: 600; }
+        .md-content a { color: #2563eb; text-decoration: underline; }
+        .md-content a:hover { color: #1d4ed8; }
+        .md-content img { max-width: 100%; border-radius: 0.5rem; margin: 1rem 0; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-4xl">
+        <a href="index.html" class="text-violet-600 hover:text-violet-800 mb-4 inline-block">&larr; Back to Nav2</a>
+
+        <div class="bg-white rounded-xl shadow-md p-6 sm:p-8 md:p-10">
+            <div class="md-content">
+<h1 id="08-nav2-recoveries-progress-checkers-and-goal-checkers">08 — Nav2 Recoveries, Progress Checkers, and Goal Checkers</h1>
+<h2 id="how-to-design-safe-retry-behavior-detect-real-stuck-conditions-and-decide-when-an-amr-should-escalate-instead-of-looping">How to design safe retry behavior, detect real stuck conditions, and decide when an AMR should escalate instead of looping</h2>
+<p><strong>Prerequisite:</strong> <a href="07-nav2-localization-odom-amcl-ekf.html">07 — Nav2 Localization Odom Amcl Ekf</a>, <a href="06-nav2-local-control-and-cmdvel.html">06 — Nav2 Local Control And Cmdvel</a>, <a href="03-nav2-bt-navigator-and-bt-xml.html">03 — Nav2 Bt Navigator And Bt Xml</a>
+<strong>Unlocks:</strong> Safer recovery policy, fewer opaque mission failures, cleaner retry budgets, better differentiation between temporary blockage and real navigation breakdown</p>
+<hr />
+<h2 id="why-should-i-care-context">Why Should I Care? (Context)</h2>
+<p>When navigation fails in production, the most important question is not &ldquo;can the robot try something?&rdquo;
+It is &ldquo;what should the robot try next, how many times, and when should it stop?&rdquo;</p>
+<p>Bad recovery design creates recognizable AMR failures:</p>
+<ol>
+<li>robot spins repeatedly in a blocked aisle while traffic backs up</li>
+<li>robot gives up too early on a temporary human obstruction</li>
+<li>robot keeps clearing costmaps even though localization is the real problem</li>
+<li>progress checker declares the robot stuck even though the base is inching forward correctly</li>
+<li>goal checker reports success at the wrong pose and corrupts downstream task logic</li>
+</ol>
+<p>Recoveries and checkers are where technical navigation meets operational policy.</p>
+<hr />
+<h2 id="part-1-recoveries-are-policy-not-cleanup-noise">PART 1 — RECOVERIES ARE POLICY, NOT CLEANUP NOISE</h2>
+<hr />
+<h2 id="11-what-recoveries-actually-mean">1.1 What Recoveries Actually Mean</h2>
+<p>A recovery is a deliberate policy decision that says:</p>
+<div class="highlight"><pre><span></span><code>the normal plan-follow loop is not succeeding
+try a bounded alternative behavior to regain progress or clarity
+</code></pre></div>
+
+<p>Common Nav2 recovery behaviors include:</p>
+<ul>
+<li>clearing costmaps</li>
+<li>spinning</li>
+<li>backing up</li>
+<li>waiting</li>
+</ul>
+<p>Those are not equivalent. Each assumes a different story about why navigation failed.</p>
+<hr />
+<h2 id="12-match-the-recovery-to-the-failure-story">1.2 Match the Recovery to the Failure Story</h2>
+<table>
+<thead>
+<tr>
+<th>Suspected failure story</th>
+<th>Good first recovery bias</th>
+<th>Bad first recovery bias</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>temporary human or forklift obstruction</td>
+<td>wait, maybe replan</td>
+<td>aggressive backup or repeated spin</td>
+</tr>
+<tr>
+<td>stale or phantom obstacle in costmap</td>
+<td>clear relevant costmap, then replan</td>
+<td>repeated wait with no model refresh</td>
+</tr>
+<tr>
+<td>robot nose trapped in tight geometry</td>
+<td>short backup, then replan</td>
+<td>repeated clear-only loop</td>
+</tr>
+<tr>
+<td>localization confusion</td>
+<td>escalate or relocalize workflow outside default recoveries</td>
+<td>endless spin/clear cycles</td>
+</tr>
+</tbody>
+</table>
+<p>If the recovery assumes the wrong story, the robot wastes time and operator trust.</p>
+<hr />
+<h2 id="13-retry-budget-is-a-product-decision">1.3 Retry Budget Is a Product Decision</h2>
+<p>The number of retries is not just a technical knob.</p>
+<p>More retries mean:</p>
+<ul>
+<li>better resilience to temporary blockage</li>
+<li>more opportunity for success without operator help</li>
+<li>more time spent failing inside shared traffic space</li>
+</ul>
+<p>Fewer retries mean:</p>
+<ul>
+<li>faster escalation to mission or fleet logic</li>
+<li>fewer useless loops</li>
+<li>more false aborts in environments with frequent short-lived obstruction</li>
+</ul>
+<p>That tradeoff depends on aisle width, human traffic, mission urgency, and operator expectations.</p>
+<hr />
+<h2 id="part-2-progress-checkers-is-the-robot-really-moving">PART 2 — PROGRESS CHECKERS: IS THE ROBOT REALLY MOVING?</h2>
+<hr />
+<h2 id="21-what-a-progress-checker-is-trying-to-prove">2.1 What a Progress Checker Is Trying to Prove</h2>
+<p>A progress checker asks a simple but operationally critical question:</p>
+<div class="highlight"><pre><span></span><code>has the robot made enough real progress within enough time to justify continuing?
+</code></pre></div>
+
+<p>That usually boils down to thresholds such as:</p>
+<ul>
+<li>minimum movement radius</li>
+<li>allowed time without sufficient movement</li>
+</ul>
+<p>Those values sound simple, but they are heavily dependent on the robot and its motion stack.</p>
+<hr />
+<h2 id="22-false-stuck-detection-is-common">2.2 False Stuck Detection Is Common</h2>
+<p>A progress checker can fire even when the controller is behaving rationally.</p>
+<p>Typical causes:</p>
+<ul>
+<li>velocity smoother reduces motion too much</li>
+<li>base deadband prevents tiny commands from producing measurable progress</li>
+<li>robot is intentionally inching during docking or narrow-aisle alignment</li>
+<li>localization noise hides real low-speed movement</li>
+</ul>
+<p>If the checker says &ldquo;stuck,&rdquo; prove whether the robot was actually unable to move or only unable to satisfy the chosen threshold.</p>
+<hr />
+<h2 id="23-progress-thresholds-must-match-motion-mode">2.3 Progress Thresholds Must Match Motion Mode</h2>
+<p>The same thresholds rarely fit all scenarios.</p>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Risk if threshold too strict</th>
+<th>Risk if threshold too loose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>normal aisle following</td>
+<td>false stuck detection</td>
+<td>slow recognition of real failures</td>
+</tr>
+<tr>
+<td>dense human environment</td>
+<td>constant needless recoveries</td>
+<td>robot waits too long in congestion</td>
+</tr>
+<tr>
+<td>docking or final alignment</td>
+<td>aborts during valid inching motion</td>
+<td>masks real low-speed deadlock</td>
+</tr>
+</tbody>
+</table>
+<p>This is why high-quality AMR systems often treat docking and general navigation differently at the mission layer.</p>
+<hr />
+<h2 id="part-3-goal-checkers-when-are-you-really-there">PART 3 — GOAL CHECKERS: WHEN ARE YOU REALLY &ldquo;THERE&rdquo;?</h2>
+<hr />
+<h2 id="31-goal-reached-is-a-contract-not-a-feeling">3.1 Goal Reached Is a Contract, Not a Feeling</h2>
+<p>A goal checker determines whether the robot has satisfied positional and angular tolerances strongly enough to report success.</p>
+<p>This matters because success triggers downstream actions:</p>
+<ul>
+<li>task completion</li>
+<li>manipulator handoff</li>
+<li>docking continuation</li>
+<li>fleet scheduling updates</li>
+</ul>
+<p>If success is declared too early, the robot may be operationally in the wrong place even though Nav2 says done.</p>
+<hr />
+<h2 id="32-position-and-yaw-tolerances-are-operational-choices">3.2 Position and Yaw Tolerances Are Operational Choices</h2>
+<p>Loose tolerances can help throughput in coarse navigation tasks.</p>
+<p>Tight tolerances matter for:</p>
+<ul>
+<li>docking</li>
+<li>pickup/dropoff staging</li>
+<li>narrow station approach</li>
+<li>handoff to another subsystem that assumes precise pose</li>
+</ul>
+<p>Bad pattern:</p>
+<ol>
+<li>team sees goal oscillation</li>
+<li>they loosen tolerances to make the issue disappear</li>
+<li>docking or staging later becomes unreliable</li>
+</ol>
+<p>That is not fixing the root cause. It is shifting the failure downstream.</p>
+<hr />
+<h2 id="33-stateful-goal-checking-can-be-useful-and-dangerous">3.3 Stateful Goal Checking Can Be Useful and Dangerous</h2>
+<p>Some goal-checking behavior uses state to avoid flapping once tolerances are satisfied.</p>
+<p>That can help stability, but it can also hide situations where the robot briefly enters tolerance and then drifts away.</p>
+<p>Use it intentionally, especially if a downstream workflow assumes precise final pose.</p>
+<hr />
+<h2 id="part-4-default-recoveries-and-when-they-make-sense">PART 4 — DEFAULT RECOVERIES AND WHEN THEY MAKE SENSE</h2>
+<hr />
+<h2 id="41-clear-costmap">4.1 Clear Costmap</h2>
+<p>This makes sense when the world model may be stale or polluted.</p>
+<p>Good use cases:</p>
+<ul>
+<li>phantom obstacle from observation lag</li>
+<li>old obstacle trail after a pallet moved</li>
+<li>local costmap not matching visible reality</li>
+</ul>
+<p>Bad use cases:</p>
+<ul>
+<li>persistent real obstacle</li>
+<li>wrong global localization</li>
+<li>base cannot execute commands</li>
+</ul>
+<p>If costmap clearing works repeatedly, do not celebrate. Ask why the stale obstacle keeps returning.</p>
+<hr />
+<h2 id="42-wait">4.2 Wait</h2>
+<p>Waiting is underused in human-heavy or forklift-heavy environments.</p>
+<p>It is often the safest first move when:</p>
+<ul>
+<li>obstruction is temporary</li>
+<li>backing up creates more conflict</li>
+<li>spinning expands risk envelope near shelves or pedestrians</li>
+</ul>
+<p>Waiting is bad when the robot is geometrically trapped or the world model itself is wrong.</p>
+<hr />
+<h2 id="43-back-up">4.3 Back Up</h2>
+<p>Backing up is useful when the robot needs space to replan or re-enter a corridor.</p>
+<p>It is risky when:</p>
+<ul>
+<li>rear perception is weak</li>
+<li>shared-traffic policy forbids blind retreat</li>
+<li>the robot is near a station or handoff zone</li>
+</ul>
+<p>In production AMRs, backup distance and conditions are policy decisions, not just defaults.</p>
+<hr />
+<h2 id="44-spin">4.4 Spin</h2>
+<p>Spin can help with sensor coverage and local environment refresh.</p>
+<p>It can also be a throughput killer in narrow aisles.</p>
+<p>If the robot repeatedly spins in a place where turning radius is operationally awkward, the policy likely belongs at the BT or mission layer, not in more retries.</p>
+<hr />
+<h2 id="part-5-recovery-design-for-common-amr-incidents">PART 5 — RECOVERY DESIGN FOR COMMON AMR INCIDENTS</h2>
+<hr />
+<h2 id="51-blocked-aisle-by-temporary-traffic">5.1 Blocked Aisle by Temporary Traffic</h2>
+<p>Recommended bias:</p>
+<ol>
+<li>wait briefly</li>
+<li>re-evaluate and maybe replan</li>
+<li>escalate if blocked beyond policy budget</li>
+</ol>
+<p>Why:</p>
+<ul>
+<li>spinning and backing often worsen shared-space behavior</li>
+<li>repeated aggressive recoveries reduce throughput for everyone</li>
+</ul>
+<hr />
+<h2 id="52-phantom-obstacle-in-local-costmap">5.2 Phantom Obstacle in Local Costmap</h2>
+<p>Recommended bias:</p>
+<ol>
+<li>clear local costmap</li>
+<li>retry local follow</li>
+<li>if repeated, investigate sensor or observation-source health</li>
+</ol>
+<p>Do not let costmap clear become a permanent band-aid for perception integration defects.</p>
+<hr />
+<h2 id="53-nose-trapped-near-shelf-corner">5.3 Nose Trapped Near Shelf Corner</h2>
+<p>Recommended bias:</p>
+<ol>
+<li>short backup</li>
+<li>replan</li>
+<li>retry with bounded count</li>
+</ol>
+<p>This is the kind of incident where backup makes more sense than waiting because geometry, not traffic, is the main issue.</p>
+<hr />
+<h2 id="54-docking-or-staging-failure">5.4 Docking or Staging Failure</h2>
+<p>Recommended bias:</p>
+<ol>
+<li>avoid generic repeated recoveries</li>
+<li>decide whether the issue is approach geometry, localization precision, or station-specific logic</li>
+<li>escalate to a docking-specific routine or mission layer if needed</li>
+</ol>
+<p>Default recoveries are often too generic for precise station work.</p>
+<hr />
+<h2 id="part-6-checker-tuning-without-lying-to-yourself">PART 6 — CHECKER TUNING WITHOUT LYING TO YOURSELF</h2>
+<hr />
+<h2 id="61-do-not-use-goal-tolerance-to-hide-localization-noise">6.1 Do Not Use Goal Tolerance to Hide Localization Noise</h2>
+<p>If the robot cannot settle because pose estimate is noisy, loosening the goal checker may only move the failure to docking, manipulation, or task completion.</p>
+<p>Treat loose tolerances as a task-level decision, not a universal fix.</p>
+<hr />
+<h2 id="62-do-not-use-progress-thresholds-to-hide-base-problems">6.2 Do Not Use Progress Thresholds to Hide Base Problems</h2>
+<p>If the base ignores small commands, increasing movement time allowance may reduce false aborts but it does not repair the command-chain mismatch.</p>
+<p>First prove that commanded low-speed motion is physically executable.</p>
+<hr />
+<h2 id="63-validate-checkers-on-three-separate-cases">6.3 Validate Checkers on Three Separate Cases</h2>
+<p>Always validate on:</p>
+<ol>
+<li>normal aisle motion</li>
+<li>temporary obstruction</li>
+<li>final approach or docking-like low-speed motion</li>
+</ol>
+<p>If one threshold set only works in one case, document the limitation instead of pretending it is universal.</p>
+<hr />
+<h2 id="part-7-escalation-to-the-mission-or-fleet-layer">PART 7 — ESCALATION TO THE MISSION OR FLEET LAYER</h2>
+<hr />
+<h2 id="71-not-every-failure-should-be-solved-inside-nav2">7.1 Not Every Failure Should Be Solved Inside Nav2</h2>
+<p>Escalate when:</p>
+<ul>
+<li>blockage persists beyond local retry budget</li>
+<li>another robot or human policy needs to change the route</li>
+<li>docking requires a product-specific decision tree</li>
+<li>operator assistance is required</li>
+</ul>
+<p>Nav2 should not carry all mission semantics alone.</p>
+<hr />
+<h2 id="72-good-escalation-signals">7.2 Good Escalation Signals</h2>
+<p>Useful signals to expose upward:</p>
+<ul>
+<li>reason for abort or failure type</li>
+<li>number of retries consumed</li>
+<li>whether progress checker or goal checker was the trigger</li>
+<li>whether recoveries changed the world model or only retried movement</li>
+</ul>
+<p>This is what lets the mission layer make informed next-step decisions.</p>
+<hr />
+<h2 id="73-senior-interview-version">7.3 Senior Interview Version</h2>
+<p>Strong answers explain that recoveries are:</p>
+<ul>
+<li>bounded</li>
+<li>scenario-specific</li>
+<li>safe for the environment</li>
+<li>observable from logs and metrics</li>
+<li>connected to mission escalation rather than endless local looping</li>
+</ul>
+<p>That is what distinguishes production AMR policy from demo navigation.</p>
+<hr />
+<h2 id="next-lesson">Next Lesson</h2>
+<p>Continue to <a href="09-nav2-waypoints-docking-zones-and-missions.html">09 — Nav2 Waypoints Docking Zones And Missions</a>.
+That lesson explains how waypoint flows, docking, costmap filters, and higher-level mission logic sit above these local retry and success contracts.</p>
+            </div>
+        </div>
+
+        <footer class="text-center mt-16 py-6 border-t border-gray-300">
+            <p class="text-gray-500">Robotics Learning Resources</p>
+        </footer>
+    </div>
+</body>
+</html>

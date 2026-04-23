@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>12 — Nav2 AMR Failure Patterns and Capstone - Learning From Building Systems</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .card {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        /* Markdown content styling */
+        .md-content h1 { font-size: 2rem; font-weight: 700; color: #111827; margin-top: 2rem; margin-bottom: 1rem; }
+        .md-content h2 { font-size: 1.5rem; font-weight: 600; color: #1f2937; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; }
+        .md-content h3 { font-size: 1.25rem; font-weight: 600; color: #374151; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+        .md-content h4 { font-size: 1.1rem; font-weight: 600; color: #4b5563; margin-top: 1.25rem; margin-bottom: 0.5rem; }
+        .md-content p { margin-bottom: 1rem; line-height: 1.75; color: #374151; }
+        .md-content ul { list-style: disc; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content ol { list-style: decimal; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content li { margin-bottom: 0.35rem; line-height: 1.6; }
+        .md-content code {
+            background-color: #f3f4f6; padding: 0.15rem 0.4rem; border-radius: 0.25rem;
+            font-size: 0.875rem; font-family: 'Fira Code', 'Courier New', monospace; color: #be185d;
+        }
+        .md-content pre {
+            background-color: #1f2937; color: #e5e7eb; padding: 1rem; border-radius: 0.5rem;
+            overflow-x: auto; margin-bottom: 1.25rem; font-size: 0.85rem; line-height: 1.6;
+        }
+        .md-content pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+        .md-content blockquote {
+            border-left: 4px solid #6366f1; background: #eef2ff; padding: 0.75rem 1rem;
+            margin-bottom: 1rem; border-radius: 0 0.5rem 0.5rem 0; color: #374151;
+        }
+        .md-content table { width: 100%; border-collapse: collapse; margin-bottom: 1.25rem; }
+        .md-content th { background: #f9fafb; padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; text-align: left; font-weight: 600; font-size: 0.875rem; }
+        .md-content td { padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; font-size: 0.875rem; }
+        .md-content tr:hover { background-color: #f9fafb; }
+        .md-content hr { border: 0; border-top: 1px solid #e5e7eb; margin: 1.5rem 0; }
+        .md-content strong { font-weight: 600; }
+        .md-content a { color: #2563eb; text-decoration: underline; }
+        .md-content a:hover { color: #1d4ed8; }
+        .md-content img { max-width: 100%; border-radius: 0.5rem; margin: 1rem 0; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-4xl">
+        <a href="index.html" class="text-violet-600 hover:text-violet-800 mb-4 inline-block">&larr; Back to Nav2</a>
+
+        <div class="bg-white rounded-xl shadow-md p-6 sm:p-8 md:p-10">
+            <div class="md-content">
+<h1 id="12-nav2-amr-failure-patterns-and-capstone">12 — Nav2 AMR Failure Patterns and Capstone</h1>
+<h2 id="how-to-recognize-recurring-production-failure-modes-reason-across-subsystem-boundaries-and-run-a-final-capstone-style-root-cause-analysis-like-a-senior-engineer">How to recognize recurring production failure modes, reason across subsystem boundaries, and run a final capstone-style root-cause analysis like a senior engineer</h2>
+<p><strong>Prerequisite:</strong> <a href="11-nav2-debugging-observability-and-bag-analysis.html">11 — Nav2 Debugging Observability And Bag Analysis</a>, <a href="09-nav2-waypoints-docking-zones-and-missions.html">09 — Nav2 Waypoints Docking Zones And Missions</a>, <a href="08-nav2-recoveries-progress-and-goal-checkers.html">08 — Nav2 Recoveries Progress And Goal Checkers</a>
+<strong>Unlocks:</strong> Faster incident classification, stronger cross-functional debugging judgment, better AMR reliability reviews, and a final integration exercise that tests full-stack Nav2 reasoning</p>
+<hr />
+<h2 id="why-should-i-care-context">Why Should I Care? (Context)</h2>
+<p>By the time a team says &ldquo;Nav2 is unreliable,&rdquo; the real problem is usually one of these:</p>
+<ol>
+<li>repeated failure patterns were never named clearly</li>
+<li>field symptoms were treated as unique incidents instead of recurring classes</li>
+<li>debugging stayed trapped inside one subsystem at a time</li>
+<li>temporary workarounds replaced root-cause correction</li>
+<li>nobody owned the final integrated explanation</li>
+</ol>
+<p>Production AMR reliability improves when teams learn to classify failures, not just react to them.</p>
+<p>This lesson is about the failure patterns that come back again and again in warehouses, factories, and constrained indoor robot deployments.</p>
+<hr />
+<h2 id="part-1-the-recurring-failure-pattern-mindset">PART 1 — THE RECURRING FAILURE PATTERN MINDSET</h2>
+<hr />
+<h2 id="11-most-field-incidents-are-variations-of-known-patterns">1.1 Most Field Incidents Are Variations of Known Patterns</h2>
+<p>A mature engineer does not start from zero every time.</p>
+<p>They ask:</p>
+<ul>
+<li>is this a localization-trust problem?</li>
+<li>is this a costmap world-model problem?</li>
+<li>is this a planner validity problem?</li>
+<li>is this a controller execution problem?</li>
+<li>is this a recovery-policy mismatch?</li>
+<li>is this really a mission-ownership issue disguised as navigation?</li>
+</ul>
+<p>Naming the class early compresses debugging time.</p>
+<hr />
+<h2 id="12-root-cause-usually-lives-one-layer-upstream-of-the-visible-failure">1.2 Root Cause Usually Lives One Layer Upstream of the Visible Failure</h2>
+<p>Common pattern:</p>
+<ul>
+<li>visible symptom: controller aborts</li>
+<li>actual root cause: localization drift or stale local obstacle</li>
+</ul>
+<p>Common pattern:</p>
+<ul>
+<li>visible symptom: no path found</li>
+<li>actual root cause: costmap semantics or TF inconsistency</li>
+</ul>
+<p>Common pattern:</p>
+<ul>
+<li>visible symptom: repeated recovery exhaustion</li>
+<li>actual root cause: recovery policy matched the wrong failure story</li>
+</ul>
+<p>This is why subsystem silo debugging performs badly.</p>
+<hr />
+<h2 id="part-2-failure-pattern-localization-trust-breakdown">PART 2 — FAILURE PATTERN: LOCALIZATION TRUST BREAKDOWN</h2>
+<hr />
+<h2 id="21-what-it-looks-like">2.1 What It Looks Like</h2>
+<p>Symptoms:</p>
+<ul>
+<li>robot pose in RViz looks slightly believable but operationally wrong</li>
+<li>final approach behavior degrades near stations or shelves</li>
+<li>recoveries do not help for long</li>
+<li>planner and controller both appear inconsistent across runs</li>
+</ul>
+<p>Localization trust breakdown is dangerous because everything downstream inherits it.</p>
+<hr />
+<h2 id="22-amr-specific-causes">2.2 AMR-Specific Causes</h2>
+<p>Typical causes in real robots:</p>
+<ul>
+<li>poor wheel odometry on dusty or glossy floors</li>
+<li>IMU alignment or calibration drift</li>
+<li>scan matching degraded by repetitive aisles</li>
+<li>EKF configuration that looks stable in sim but not on hardware</li>
+<li>insufficient feature richness near docks or charging areas</li>
+</ul>
+<p>These are rarely fixed by changing recovery count.</p>
+<hr />
+<h2 id="23-senior-response-pattern">2.3 Senior Response Pattern</h2>
+<p>Good response:</p>
+<ol>
+<li>prove localization quality relative to map and physical landmarks</li>
+<li>inspect where drift starts, not just where abort happens</li>
+<li>separate global navigation quality from final alignment precision</li>
+<li>propose the narrowest fix that restores the localization contract</li>
+</ol>
+<p>Bad response:</p>
+<ol>
+<li>loosen goal tolerances</li>
+<li>add retries</li>
+<li>declare the controller more robust</li>
+</ol>
+<hr />
+<h2 id="part-3-failure-pattern-costmap-story-does-not-match-reality">PART 3 — FAILURE PATTERN: COSTMAP STORY DOES NOT MATCH REALITY</h2>
+<hr />
+<h2 id="31-what-it-looks-like">3.1 What It Looks Like</h2>
+<p>Symptoms:</p>
+<ul>
+<li>no-path results in apparently open space</li>
+<li>robot slows or detours irrationally</li>
+<li>local avoidance behaves as if ghosts exist</li>
+<li>costmap clearing seems to help briefly, then issue returns</li>
+</ul>
+<p>The world model is lying to navigation.</p>
+<hr />
+<h2 id="32-common-causes">3.2 Common Causes</h2>
+<table>
+<thead>
+<tr>
+<th>Cause</th>
+<th>Typical AMR effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>stale obstacle persistence</td>
+<td>aisle stays blocked after pallet moved</td>
+</tr>
+<tr>
+<td>over-aggressive inflation</td>
+<td>narrow corridor becomes non-traversable</td>
+</tr>
+<tr>
+<td>frame mismatch in sensor observations</td>
+<td>obstacles appear shifted or delayed</td>
+</tr>
+<tr>
+<td>keepout or speed-zone configuration error</td>
+<td>robot behavior changes by area in confusing ways</td>
+</tr>
+</tbody>
+</table>
+<p>The planner is often behaving correctly under a bad map state.</p>
+<hr />
+<h2 id="33-senior-response-pattern">3.3 Senior Response Pattern</h2>
+<p>Senior engineers ask:</p>
+<ul>
+<li>what exactly did the costmap believe at failure time?</li>
+<li>did that belief come from valid, fresh inputs?</li>
+<li>is the issue global, local, or both?</li>
+<li>is the fix perception-side, costmap-side, or semantic-overlay-side?</li>
+</ul>
+<p>They do not jump straight to a planner swap.</p>
+<hr />
+<h2 id="part-4-failure-pattern-path-is-valid-but-motion-is-not">PART 4 — FAILURE PATTERN: PATH IS VALID BUT MOTION IS NOT</h2>
+<hr />
+<h2 id="41-what-it-looks-like">4.1 What It Looks Like</h2>
+<p>Symptoms:</p>
+<ul>
+<li>planner produces reasonable paths</li>
+<li>robot hesitates, oscillates, clips corners, or crawls</li>
+<li>progress checker fires even though commands are present</li>
+<li><code>cmd_vel</code> exists but mission progress is poor</li>
+</ul>
+<p>This is where controller logic, drivetrain reality, and odometry quality meet.</p>
+<hr />
+<h2 id="42-common-causes">4.2 Common Causes</h2>
+<ul>
+<li>controller tuning mismatched to robot geometry or drivetrain limits</li>
+<li>base deadband or actuator saturation not reflected in tuning</li>
+<li>velocity smoothing too conservative for narrow aisle transitions</li>
+<li>odometry under-reporting low-speed progress</li>
+<li>controller asked to solve a docking-grade final approach it does not own</li>
+</ul>
+<hr />
+<h2 id="43-senior-response-pattern">4.3 Senior Response Pattern</h2>
+<p>Good response:</p>
+<ol>
+<li>compare planned motion with actual motion</li>
+<li>compare actual motion with odometry-reported motion</li>
+<li>inspect progress-checker assumptions against real base behavior</li>
+<li>decide whether this is controller tuning, drivetrain execution, or ownership mismatch</li>
+</ol>
+<p>This is how you avoid endlessly retuning critics while ignoring base limitations.</p>
+<hr />
+<h2 id="part-5-failure-pattern-recovery-loop-without-learning">PART 5 — FAILURE PATTERN: RECOVERY LOOP WITHOUT LEARNING</h2>
+<hr />
+<h2 id="51-what-it-looks-like">5.1 What It Looks Like</h2>
+<p>Symptoms:</p>
+<ul>
+<li>repeated clear, spin, backup, or wait cycles</li>
+<li>same local geometry repeatedly triggers failure</li>
+<li>robot burns mission time without changing the outcome</li>
+<li>operators describe behavior as &ldquo;stuck but busy&rdquo;</li>
+</ul>
+<p>This is a policy failure as much as a navigation failure.</p>
+<hr />
+<h2 id="52-why-it-happens">5.2 Why It Happens</h2>
+<p>Usually because the BT and recovery policy assume the wrong failure story.</p>
+<p>Examples:</p>
+<ul>
+<li>true blocked aisle treated as stale costmap noise</li>
+<li>localization confusion treated as local obstacle problem</li>
+<li>docking alignment issue treated as generic navigation failure</li>
+</ul>
+<p>More retries on the wrong story usually produce worse operations.</p>
+<hr />
+<h2 id="53-senior-response-pattern">5.3 Senior Response Pattern</h2>
+<p>Senior engineers ask:</p>
+<ul>
+<li>what hypothesis did each recovery encode?</li>
+<li>did any recovery materially change the robot&rsquo;s information or geometry?</li>
+<li>when should escalation have happened instead?</li>
+</ul>
+<p>Recoveries should buy new information or a new starting state. Otherwise they are theater.</p>
+<hr />
+<h2 id="part-6-failure-pattern-mission-and-navigation-ownership-confusion">PART 6 — FAILURE PATTERN: MISSION AND NAVIGATION OWNERSHIP CONFUSION</h2>
+<hr />
+<h2 id="61-what-it-looks-like">6.1 What It Looks Like</h2>
+<p>Symptoms:</p>
+<ul>
+<li>navigation goal technically succeeds but task fails operationally</li>
+<li>docking or pickup sequence blames Nav2 for station-specific logic gaps</li>
+<li>mission layer times out and the team calls it a Nav2 abort</li>
+<li>waypoint execution becomes a hidden state machine for business logic</li>
+</ul>
+<p>Not every robot failure is owned by navigation.</p>
+<hr />
+<h2 id="62-high-value-questions">6.2 High-Value Questions</h2>
+<p>Ask:</p>
+<ol>
+<li>was the requested goal operationally correct?</li>
+<li>should this have been standard navigation or a specialized docking workflow?</li>
+<li>did mission policy prematurely cancel or overconstrain Nav2?</li>
+<li>was downstream task logic depending on pose precision beyond the stated navigation contract?</li>
+</ol>
+<p>These questions often save weeks of misdirected tuning.</p>
+<hr />
+<h2 id="part-7-failure-pattern-configuration-drift-across-robots-or-sites">PART 7 — FAILURE PATTERN: CONFIGURATION DRIFT ACROSS ROBOTS OR SITES</h2>
+<hr />
+<h2 id="71-what-it-looks-like">7.1 What It Looks Like</h2>
+<p>Symptoms:</p>
+<ul>
+<li>one robot class works, another does not</li>
+<li>one site behaves well, another becomes fragile</li>
+<li>sim and hardware disagree in ways that feel mysterious</li>
+<li>nobody knows which parameter layer is actually active</li>
+</ul>
+<p>This is not just a debugging annoyance. It is an operational risk.</p>
+<hr />
+<h2 id="72-typical-causes">7.2 Typical Causes</h2>
+<ul>
+<li>hidden launch overrides</li>
+<li>copied YAML with partial edits</li>
+<li>site-specific rules embedded in shared defaults</li>
+<li>temporary debug parameters that never expired</li>
+<li>plugin or BT variants drifting without documentation</li>
+</ul>
+<hr />
+<h2 id="73-senior-response-pattern">7.3 Senior Response Pattern</h2>
+<p>Good response:</p>
+<ol>
+<li>compare effective configuration, not intended configuration</li>
+<li>isolate what differs by robot, site, and runtime mode</li>
+<li>restore ownership boundaries in parameter layering and launch structure</li>
+</ol>
+<p>Unowned configuration entropy is a root cause category of its own.</p>
+<hr />
+<h2 id="part-8-capstone-final-root-cause-analysis-exercise">PART 8 — CAPSTONE: FINAL ROOT-CAUSE ANALYSIS EXERCISE</h2>
+<hr />
+<h2 id="81-scenario">8.1 Scenario</h2>
+<p>You are on call for a warehouse AMR fleet.</p>
+<p>A robot repeatedly fails when sent from a staging lane to a charging dock during the afternoon shift.
+Operators report:</p>
+<ul>
+<li>robot navigates most of the route correctly</li>
+<li>near the dock zone it slows, oscillates, and sometimes clears costmaps</li>
+<li>on some runs it aborts with no progress</li>
+<li>on other runs it ends near the dock but not well enough for charging contact</li>
+<li>issue appears worse when traffic is high and pallets are temporarily staged nearby</li>
+</ul>
+<p>Known context:</p>
+<ul>
+<li>map includes keepout and speed-zone semantics near the dock corridor</li>
+<li>localization is AMCL with wheel odom and IMU</li>
+<li>controller settings were recently shared across two robot variants</li>
+<li>mission layer still treats docking as a normal goal plus a charging command</li>
+</ul>
+<hr />
+<h2 id="82-what-a-strong-capstone-answer-should-do">8.2 What a Strong Capstone Answer Should Do</h2>
+<p>Your analysis should:</p>
+<ol>
+<li>separate symptom from hypothesis</li>
+<li>identify the likely failure classes involved</li>
+<li>define the first evidence you would collect</li>
+<li>explain which layers own which parts of the problem</li>
+<li>propose a root-cause ranking, not just one guess</li>
+<li>describe the safest validation path for any proposed fix</li>
+</ol>
+<p>This is not a trivia exercise. It is an engineering judgment exercise.</p>
+<hr />
+<h2 id="83-example-of-a-weak-answer">8.3 Example of a Weak Answer</h2>
+<div class="highlight"><pre><span></span><code>Increase recovery count, lower controller aggressiveness, and try a different planner.
+</code></pre></div>
+
+<p>Why it is weak:</p>
+<ul>
+<li>it does not classify the failure</li>
+<li>it collects no evidence</li>
+<li>it mixes multiple layers blindly</li>
+<li>it could mask the problem without solving it</li>
+</ul>
+<hr />
+<h2 id="84-example-of-a-stronger-answer-outline">8.4 Example of a Stronger Answer Outline</h2>
+<div class="highlight"><pre><span></span><code>Likely interacting failure classes:
+1. docking ownership mismatch
+2. local costmap or semantic-zone disturbance near the dock corridor
+3. robot-variant-specific low-speed execution differences
+
+First evidence:
+- bag around the final 30 to 60 seconds of approach
+- TF freshness and AMCL stability near dock zone
+- local costmap state and obstacle persistence
+- action feedback, cmd_vel, and post-safety velocity execution
+- effective parameter diff between working and failing robot variants
+
+Preliminary judgment:
+- generic navigation is being asked to finish a docking-grade alignment
+- shared controller settings may be invalid for one robot variant at low speed
+- temporary nearby pallets may be polluting the local costmap or creating recoverable-but-misclassified obstruction
+</code></pre></div>
+
+<p>That answer is stronger because it structures the investigation before prescribing a fix.</p>
+<hr />
+<h2 id="85-capstone-deliverable-template">8.5 Capstone Deliverable Template</h2>
+<p>Use this template for the final exercise:</p>
+<table>
+<thead>
+<tr>
+<th>Section</th>
+<th>What to include</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>symptom summary</td>
+<td>what happened, when, under what mission context</td>
+</tr>
+<tr>
+<td>subsystem evidence</td>
+<td>logs, TF, localization, costmaps, planner, controller, BT, mission</td>
+</tr>
+<tr>
+<td>failure classes</td>
+<td>recurring pattern names that apply</td>
+</tr>
+<tr>
+<td>root-cause ranking</td>
+<td>most likely to least likely with evidence</td>
+</tr>
+<tr>
+<td>fix proposal</td>
+<td>narrow, ownership-correct corrective actions</td>
+</tr>
+<tr>
+<td>validation plan</td>
+<td>replay, sim, and field confirmation steps</td>
+</tr>
+<tr>
+<td>regression guard</td>
+<td>what should be monitored so this does not silently return</td>
+</tr>
+</tbody>
+</table>
+<p>This is the kind of writeup senior engineers are expected to produce.</p>
+<hr />
+<h2 id="part-9-what-senior-engineers-do-differently">PART 9 — WHAT SENIOR ENGINEERS DO DIFFERENTLY</h2>
+<hr />
+<h2 id="91-they-classify-faster-without-overclaiming">9.1 They Classify Faster Without Overclaiming</h2>
+<p>Senior engineers often recognize the pattern quickly, but they still preserve rigor.</p>
+<p>They say:</p>
+<ul>
+<li>this smells like a world-model problem</li>
+<li>this looks like localization trust breakdown near final approach</li>
+<li>this may be configuration drift across robot variants</li>
+</ul>
+<p>They do not say:</p>
+<ul>
+<li>definitely the planner</li>
+<li>definitely a bad controller</li>
+</ul>
+<p>Pattern recognition should speed investigation, not replace evidence.</p>
+<hr />
+<h2 id="92-they-protect-ownership-boundaries">9.2 They Protect Ownership Boundaries</h2>
+<p>Good seniors keep asking:</p>
+<ul>
+<li>should this be solved in mission logic?</li>
+<li>should this be expressed as map semantics?</li>
+<li>should this be a controller or progress-checker change?</li>
+<li>should docking remain outside generic goal navigation?</li>
+</ul>
+<p>This prevents the codebase from degrading into layer confusion.</p>
+<hr />
+<h2 id="93-they-improve-the-system-after-the-incident">9.3 They Improve the System After the Incident</h2>
+<p>The best response to a major navigation incident is not only a patch.</p>
+<p>It is also:</p>
+<ul>
+<li>better bag capture defaults</li>
+<li>better dashboards or RViz views</li>
+<li>better parameter ownership</li>
+<li>better incident templates</li>
+<li>better distinction between mission and navigation contracts</li>
+</ul>
+<p>That is how reliability compounds.</p>
+<hr />
+<h2 id="quick-recap">Quick Recap</h2>
+<ul>
+<li>recurring failure classes speed debugging when used carefully</li>
+<li>visible symptoms often sit downstream of the real cause</li>
+<li>production AMR failures often blend localization, world-model, control, and ownership issues</li>
+<li>the capstone is about evidence-backed reasoning across the whole stack</li>
+<li>strong engineers produce ranked hypotheses, not random tuning bundles</li>
+</ul>
+<hr />
+<h2 id="next-lesson">Next Lesson</h2>
+<p>Continue to <a href="13-nav2-senior-interview-questions.html">13 — Nav2 Senior Interview Questions</a></p>
+            </div>
+        </div>
+
+        <footer class="text-center mt-16 py-6 border-t border-gray-300">
+            <p class="text-gray-500">Robotics Learning Resources</p>
+        </footer>
+    </div>
+</body>
+</html>

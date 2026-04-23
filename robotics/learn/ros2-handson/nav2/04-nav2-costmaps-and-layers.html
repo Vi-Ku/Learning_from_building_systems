@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>04 — Nav2 Costmaps and Layers - Learning From Building Systems</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .card {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        /* Markdown content styling */
+        .md-content h1 { font-size: 2rem; font-weight: 700; color: #111827; margin-top: 2rem; margin-bottom: 1rem; }
+        .md-content h2 { font-size: 1.5rem; font-weight: 600; color: #1f2937; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; }
+        .md-content h3 { font-size: 1.25rem; font-weight: 600; color: #374151; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+        .md-content h4 { font-size: 1.1rem; font-weight: 600; color: #4b5563; margin-top: 1.25rem; margin-bottom: 0.5rem; }
+        .md-content p { margin-bottom: 1rem; line-height: 1.75; color: #374151; }
+        .md-content ul { list-style: disc; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content ol { list-style: decimal; margin-left: 1.5rem; margin-bottom: 1rem; color: #374151; }
+        .md-content li { margin-bottom: 0.35rem; line-height: 1.6; }
+        .md-content code {
+            background-color: #f3f4f6; padding: 0.15rem 0.4rem; border-radius: 0.25rem;
+            font-size: 0.875rem; font-family: 'Fira Code', 'Courier New', monospace; color: #be185d;
+        }
+        .md-content pre {
+            background-color: #1f2937; color: #e5e7eb; padding: 1rem; border-radius: 0.5rem;
+            overflow-x: auto; margin-bottom: 1.25rem; font-size: 0.85rem; line-height: 1.6;
+        }
+        .md-content pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+        .md-content blockquote {
+            border-left: 4px solid #6366f1; background: #eef2ff; padding: 0.75rem 1rem;
+            margin-bottom: 1rem; border-radius: 0 0.5rem 0.5rem 0; color: #374151;
+        }
+        .md-content table { width: 100%; border-collapse: collapse; margin-bottom: 1.25rem; }
+        .md-content th { background: #f9fafb; padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; text-align: left; font-weight: 600; font-size: 0.875rem; }
+        .md-content td { padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; font-size: 0.875rem; }
+        .md-content tr:hover { background-color: #f9fafb; }
+        .md-content hr { border: 0; border-top: 1px solid #e5e7eb; margin: 1.5rem 0; }
+        .md-content strong { font-weight: 600; }
+        .md-content a { color: #2563eb; text-decoration: underline; }
+        .md-content a:hover { color: #1d4ed8; }
+        .md-content img { max-width: 100%; border-radius: 0.5rem; margin: 1rem 0; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-4xl">
+        <a href="index.html" class="text-violet-600 hover:text-violet-800 mb-4 inline-block">&larr; Back to Nav2</a>
+
+        <div class="bg-white rounded-xl shadow-md p-6 sm:p-8 md:p-10">
+            <div class="md-content">
+<h1 id="04-nav2-costmaps-and-layers">04 — Nav2 Costmaps and Layers</h1>
+<h2 id="how-nav2-turns-maps-and-sensor-observations-into-a-navigable-world-model-and-why-amrs-fail-when-that-model-drifts-from-reality">How Nav2 turns maps and sensor observations into a navigable world model, and why AMRs fail when that model drifts from reality</h2>
+<p><strong>Prerequisite:</strong> <a href="01-nav2-system-architecture.html">01 — Nav2 System Architecture</a>, <a href="03-nav2-bt-navigator-and-bt-xml.html">03 — Nav2 Bt Navigator And Bt Xml</a>, <a href="../02-tf2-time-qos.html">02 — Tf2 Time Qos</a>
+<strong>Unlocks:</strong> Costmap debugging, inflation tuning, obstacle-layer reasoning, safer aisle behavior, clearer root-cause analysis for &ldquo;no path&rdquo; and oscillation failures</p>
+<hr />
+<h2 id="why-should-i-care-context">Why Should I Care? (Context)</h2>
+<p>When engineers say &ldquo;the planner is broken,&rdquo; they are often really saying:</p>
+<ol>
+<li>the costmap contains an obstacle that is not physically there</li>
+<li>the costmap is missing an obstacle that is physically there</li>
+<li>the inflation settings make a passable aisle look blocked</li>
+<li>the robot footprint makes a legal route impossible in the current configuration</li>
+<li>unknown space policy does not match the operating environment</li>
+</ol>
+<p>Costmaps are not just an implementation detail. They are Nav2&rsquo;s working picture of the world. If that picture is wrong, every server above it becomes predictably wrong too.</p>
+<hr />
+<h2 id="part-1-what-a-costmap-is">PART 1 — WHAT A COSTMAP IS</h2>
+<hr />
+<h2 id="11-a-costmap-is-a-grid-of-navigation-risk">1.1 A Costmap Is a Grid of Navigation Risk</h2>
+<p>At a high level, a costmap is a 2D grid where each cell describes how safe or costly it is for the robot to occupy that space.</p>
+<div class="highlight"><pre><span></span><code>free space        -&gt; easy to traverse
+inflated space    -&gt; near obstacle, allowed but penalized
+lethal obstacle   -&gt; not traversable
+unknown           -&gt; depends on policy
+</code></pre></div>
+
+<p>This grid is the world model used by planning and control.</p>
+<hr />
+<h2 id="12-global-vs-local-costmaps">1.2 Global vs Local Costmaps</h2>
+<h3 id="global-costmap">Global costmap</h3>
+<p>Used mainly by the global planner.</p>
+<p>Characteristics:</p>
+<ul>
+<li>map-wide or large-area representation</li>
+<li>stable enough for route computation</li>
+<li>often includes static map plus selected obstacle information</li>
+</ul>
+<h3 id="local-costmap">Local costmap</h3>
+<p>Used mainly by the controller.</p>
+<p>Characteristics:</p>
+<ul>
+<li>rolling window around the robot</li>
+<li>higher tactical sensitivity to recent sensor data</li>
+<li>used for immediate collision avoidance and short-horizon feasibility</li>
+</ul>
+<p><strong>Operational insight:</strong></p>
+<ul>
+<li>If global costmap is wrong, you get bad routes or no routes.</li>
+<li>If local costmap is wrong, you get hesitation, oscillation, near-collision behavior, or excessive recoveries.</li>
+</ul>
+<hr />
+<h2 id="part-2-the-layer-model">PART 2 — THE LAYER MODEL</h2>
+<hr />
+<h2 id="21-layers-build-the-final-master-costmap">2.1 Layers Build the Final Master Costmap</h2>
+<p>The final costmap is usually composed from multiple layers.</p>
+<div class="highlight"><pre><span></span><code>master costmap
+    = static layer
+    + obstacle/voxel layer
+    + inflation layer
+    + optional semantic filters or custom layers
+</code></pre></div>
+
+<p>Each layer contributes information differently.</p>
+<hr />
+<h2 id="22-static-layer">2.2 Static Layer</h2>
+<p>The static layer comes from the occupancy grid map.</p>
+<p>It provides long-lived environmental structure such as:</p>
+<ul>
+<li>walls</li>
+<li>racks</li>
+<li>permanent machinery footprints</li>
+<li>mapped corridor geometry</li>
+</ul>
+<p>This is the backbone of the global world model.</p>
+<p><strong>Failure mode:</strong> if the facility layout changed but the map did not, the static layer can make the planner confidently wrong.</p>
+<hr />
+<h2 id="23-obstacle-layer-or-voxel-layer">2.3 Obstacle Layer or Voxel Layer</h2>
+<p>This layer ingests sensor observations such as lidar or depth data.</p>
+<p>Its job is to:</p>
+<ul>
+<li>mark obstacle cells when hits are observed</li>
+<li>clear obstacle cells when free space is observed</li>
+<li>fuse dynamic environment evidence into the costmap</li>
+</ul>
+<p>Key configuration ideas:</p>
+<ul>
+<li>marking vs clearing</li>
+<li>observation source names and topics</li>
+<li>obstacle height handling for 3D sensors</li>
+<li>persistence and buffering behavior</li>
+</ul>
+<p><strong>AMR reality:</strong> many phantom-obstacle incidents are obstacle-layer configuration problems, not planner problems.</p>
+<hr />
+<h2 id="24-inflation-layer">2.4 Inflation Layer</h2>
+<p>Inflation does not create obstacles. It expands their influence.</p>
+<p>Why it exists:</p>
+<ul>
+<li>keep path planning away from walls and pallet corners</li>
+<li>account for localization uncertainty and control error</li>
+<li>encourage safer path margins</li>
+</ul>
+<p>Why it causes trouble:</p>
+<ul>
+<li>too much inflation makes narrow but legal aisles look impossible</li>
+<li>too little inflation leads to aggressive paths that are hard to track safely</li>
+</ul>
+<p>Inflation is one of the most operationally sensitive Nav2 settings for warehouse robots.</p>
+<hr />
+<h2 id="25-costmap-filters-and-semantic-layers">2.5 Costmap Filters and Semantic Layers</h2>
+<p>Modern AMR deployments often need semantics beyond raw occupancy.</p>
+<p>Examples:</p>
+<ul>
+<li>keepout zones around forbidden areas</li>
+<li>speed zones near humans or workcells</li>
+<li>restricted approach zones near docks</li>
+</ul>
+<p>These are not classical obstacle layers, but they shape motion policy through the costmap representation.</p>
+<p>This matters because product requirements often enter navigation through map semantics, not through planner code.</p>
+<hr />
+<h2 id="part-3-footprint-clearance-and-passability">PART 3 — FOOTPRINT, CLEARANCE, AND PASSABILITY</h2>
+<hr />
+<h2 id="31-the-footprint-is-a-first-class-contract">3.1 The Footprint Is a First-Class Contract</h2>
+<p>The robot footprint tells Nav2 how much space the robot occupies.</p>
+<p>If it is wrong, the rest of the stack becomes misleading:</p>
+<ul>
+<li>too small -&gt; planner/controller accept unsafe routes</li>
+<li>too large -&gt; planner says no path in routes the physical robot could take</li>
+</ul>
+<p>In warehouses, footprint accuracy matters because tolerances are often tight relative to aisle width.</p>
+<hr />
+<h2 id="32-aisle-passability-is-not-just-geometry">3.2 Aisle Passability Is Not Just Geometry</h2>
+<p>Whether a robot can pass an aisle depends on the combination of:</p>
+<ul>
+<li>map resolution</li>
+<li>footprint dimensions</li>
+<li>inflation radius</li>
+<li>localization uncertainty</li>
+<li>controller tracking quality</li>
+</ul>
+<p>That means two robots using the same map can have different passability outcomes under different tuning.</p>
+<hr />
+<h2 id="33-why-an-apparently-open-corridor-can-still-produce-no-path">3.3 Why an Apparently Open Corridor Can Still Produce &ldquo;No Path&rdquo;</h2>
+<p>Typical reasons:</p>
+<ol>
+<li>inflated obstacles overlap after accounting for footprint</li>
+<li>unknown space blocks planning under current policy</li>
+<li>stale obstacle marks remain from sensor history</li>
+<li>localization places the robot or goal slightly inside inflated/lethal space</li>
+<li>map resolution plus footprint discretization closes a narrow gap</li>
+</ol>
+<p>This is one of the most common senior-level Nav2 debugging questions because the answer requires costmap reasoning, not intuition from looking at the physical aisle.</p>
+<hr />
+<h2 id="part-4-observation-sources-and-stale-world-models">PART 4 — OBSERVATION SOURCES AND STALE WORLD MODELS</h2>
+<hr />
+<h2 id="41-marking-and-clearing-must-both-work">4.1 Marking and Clearing Must Both Work</h2>
+<p>A sensor layer is only useful if it can both detect new obstacles and remove old ones when space becomes free.</p>
+<p>If marking works but clearing fails:</p>
+<ul>
+<li>pallets linger in the costmap after removal</li>
+<li>robot sees ghost walls</li>
+<li>planner repeatedly fails or routes around empty space</li>
+</ul>
+<p>If clearing is too aggressive:</p>
+<ul>
+<li>real obstacles disappear too early</li>
+<li>controller behaves overconfidently</li>
+</ul>
+<p>This is a balancing problem, not a binary one.</p>
+<hr />
+<h2 id="42-observation-timing-matters">4.2 Observation Timing Matters</h2>
+<p>Even with correct geometry, bad timing can poison the world model.</p>
+<p>Examples:</p>
+<ul>
+<li>lidar data arrives late relative to TF</li>
+<li>sensor topic stalls under network load</li>
+<li>transform tolerance is too small for actual latency</li>
+<li>bag replay uses time settings that make costmap updates appear flaky</li>
+</ul>
+<p>When timing goes wrong, the costmap can be syntactically valid and operationally misleading.</p>
+<hr />
+<h2 id="43-rolling-window-behavior-in-the-local-costmap">4.3 Rolling Window Behavior in the Local Costmap</h2>
+<p>The local costmap usually moves with the robot.</p>
+<p>That makes it excellent for:</p>
+<ul>
+<li>nearby obstacle reaction</li>
+<li>tight maneuvering</li>
+<li>controller safety margin decisions</li>
+</ul>
+<p>But it also means:</p>
+<ul>
+<li>stale local obstacles can follow the robot&rsquo;s working space for a while</li>
+<li>short observation horizons may miss upcoming geometry if sensor placement is poor</li>
+<li>tuning decisions affect how early the controller reacts near corners and aisle entries</li>
+</ul>
+<hr />
+<h2 id="part-5-unknown-space-policy">PART 5 — UNKNOWN SPACE POLICY</h2>
+<hr />
+<h2 id="51-unknown-does-not-mean-the-same-thing-everywhere">5.1 Unknown Does Not Mean the Same Thing Everywhere</h2>
+<p>Unknown cells can be treated differently depending on planner and configuration.</p>
+<p>In some deployments, unknown space is effectively forbidden.
+In others, it is traversable but risky.</p>
+<p>This policy depends on environment type.</p>
+<h3 id="structured-warehouse-with-fixed-navigation-lanes">Structured warehouse with fixed navigation lanes</h3>
+<p>Conservative unknown policy is common because the robot should operate mostly in mapped space.</p>
+<h3 id="semi-structured-industrial-floor-with-evolving-layouts">Semi-structured industrial floor with evolving layouts</h3>
+<p>Some tolerance for unknown exploration may be necessary, though often outside standard AMR production behavior.</p>
+<hr />
+<h2 id="52-why-unknown-space-decisions-affect-throughput">5.2 Why Unknown-Space Decisions Affect Throughput</h2>
+<p>Overly conservative unknown handling can:</p>
+<ul>
+<li>reject valid temporary routes</li>
+<li>increase deadlock frequency near partially observed areas</li>
+<li>cause unnecessary human intervention</li>
+</ul>
+<p>Overly permissive handling can:</p>
+<ul>
+<li>send robots through poorly understood space</li>
+<li>create unacceptable safety or predictability problems</li>
+</ul>
+<p>This is a product and operations decision, not just a technical parameter choice.</p>
+<hr />
+<h2 id="part-6-amr-failure-modes-rooted-in-costmaps">PART 6 — AMR FAILURE MODES ROOTED IN COSTMAPS</h2>
+<hr />
+<h2 id="61-phantom-pallet-problem">6.1 Phantom Pallet Problem</h2>
+<p>The costmap still shows a pallet after the pallet is gone.</p>
+<p>Likely causes:</p>
+<ul>
+<li>clearing rays not configured correctly</li>
+<li>observation persistence too long</li>
+<li>sensor blind spot preventing clearing evidence</li>
+<li>TF/timestamp mismatch making clearing invalid</li>
+</ul>
+<p>Visible symptom:</p>
+<ul>
+<li>planner says no path or takes weird detours through obviously free space</li>
+</ul>
+<hr />
+<h2 id="62-overinflated-corridor-problem">6.2 Overinflated Corridor Problem</h2>
+<p>Two rack edges plus inflation plus footprint leave no legal free channel in the grid.</p>
+<p>Visible symptom:</p>
+<ul>
+<li>corridor looks passable to humans</li>
+<li>planner refuses route</li>
+<li>operators blame map or planner without checking inflation math</li>
+</ul>
+<hr />
+<h2 id="63-dynamic-obstacle-chatter">6.3 Dynamic Obstacle Chatter</h2>
+<p>Humans or forklifts create rapid obstacle changes near the robot.</p>
+<p>Visible symptoms:</p>
+<ul>
+<li>controller repeatedly slows and resumes</li>
+<li>robot appears indecisive at intersections</li>
+<li>BT recovery may trigger because local execution cannot make stable progress</li>
+</ul>
+<p>This is often a local costmap behavior problem combined with controller policy.</p>
+<hr />
+<h2 id="64-wrong-footprint-wrong-conclusions">6.4 Wrong Footprint, Wrong Conclusions</h2>
+<p>If the footprint is copied from a CAD bounding box without considering safety margins, sensor offsets, or control accuracy, the costmap may consistently misclassify viability.</p>
+<p>Result:</p>
+<ul>
+<li>some aisles become impossible in software</li>
+<li>other near-collision routes look legal</li>
+</ul>
+<p>This is why footprint tuning deserves real validation, not guesswork.</p>
+<hr />
+<h2 id="part-7-how-to-tune-and-review-costmaps">PART 7 — HOW TO TUNE AND REVIEW COSTMAPS</h2>
+<hr />
+<h2 id="71-practical-tuning-order">7.1 Practical Tuning Order</h2>
+<p>Start with this order:</p>
+<ol>
+<li>verify map correctness</li>
+<li>verify footprint accuracy</li>
+<li>verify obstacle source marking and clearing</li>
+<li>tune inflation for safe but passable margins</li>
+<li>review unknown-space policy</li>
+<li>add semantic zones only after the base world model is trustworthy</li>
+</ol>
+<p>This order prevents a common anti-pattern: compensating for bad obstacle data with semantic or planner changes.</p>
+<hr />
+<h2 id="72-review-checklist">7.2 Review Checklist</h2>
+<ul>
+<li>Does the costmap match the operating environment closely enough?</li>
+<li>Are obstacle sources timely and correctly framed?</li>
+<li>Is the footprint realistic for the actual AMR body and control behavior?</li>
+<li>Does inflation reflect safety needs without collapsing aisle passability?</li>
+<li>Are keepout and speed zones used for product policy rather than to hide map defects?</li>
+</ul>
+<hr />
+<h2 id="73-what-you-should-be-able-to-explain-after-this-lesson">7.3 What You Should Be Able to Explain After This Lesson</h2>
+<p>You should now be able to explain:</p>
+<ol>
+<li>why global and local costmaps serve different roles</li>
+<li>how layers combine into the final world model</li>
+<li>why footprint and inflation settings strongly affect route feasibility</li>
+<li>how stale or mistimed observations create phantom navigation failures</li>
+<li>why many planner complaints are really costmap complaints upstream</li>
+</ol>
+<hr />
+<h2 id="74-next-step">7.4 Next Step</h2>
+<p>Continue to <a href="05-nav2-global-planning.html">05 — Nav2 Global Planning</a>.</p>
+<p>That lesson builds on the costmap model and explains planner selection, tradeoffs, and failure patterns for production AMRs.</p>
+            </div>
+        </div>
+
+        <footer class="text-center mt-16 py-6 border-t border-gray-300">
+            <p class="text-gray-500">Robotics Learning Resources</p>
+        </footer>
+    </div>
+</body>
+</html>
