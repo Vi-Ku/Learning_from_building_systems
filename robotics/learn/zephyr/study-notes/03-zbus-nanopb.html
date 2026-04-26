@@ -74,8 +74,8 @@
 <p><strong>Hardware:</strong> STM32 Nucleo-H743ZI2 · ICM-42688-P · Jetson Orin · Zephyr RTOS</p>
 <blockquote>
 <p><strong>Electronics prerequisite:</strong> Understanding the SPI frame framing (header + length + CRC) assumes you&rsquo;ve read:
-- SPI protocol framing → <a href="electronics/05-spi-deep-dive.html">e[lectronics/05-spi-deep-dive.md](lectronics/05-spi-deep-dive.html)</a> (why raw SPI has no message boundaries)
-- Serialization concept → <a href="electronics/03-opamps-adc-sampling.html">e[lectronics/03-opamps-adc-sampling.md](lectronics/03-opamps-adc-sampling.html)</a> § Serializer/Deserializer</p>
+- SPI protocol framing → <a href="electronics/05-spi-deep-dive.html">05 — Spi Deep Dive</a> (why raw SPI has no message boundaries)
+- Serialization concept → <a href="electronics/03-opamps-adc-sampling.html">03 — Opamps Adc Sampling</a> § Serializer/Deserializer</p>
 </blockquote>
 <hr />
 <h2 id="part-1-eli15-concept-explanations">PART 1 — ELI15 Concept Explanations</h2>
@@ -1232,7 +1232,7 @@ t=60ms:  frame.seq=110, accel_x=1.31  ← seq jumped by 5
 <td>First 1–4 bytes of EVERY SPI frame are 0x00 on Jetson</td>
 <td>SPI slave DMA pre-arming race: DMA armed in CS interrupt callback, but CS goes low and clock starts before DMA is ready</td>
 <td>Logic analyzer: trigger on CS falling edge, observe first byte(s) on MISO line — they will be 0x00 while subsequent bytes are correct</td>
-<td>Arm SPI slave DMA in the <em>previous transfer complete</em> callback, not on CS assert. See <a href="docs/runbooks/spi-slave-race.html">docs/runbooks/spi-slave-race.md</a></td>
+<td>Arm SPI slave DMA in the <em>previous transfer complete</em> callback, not on CS assert. See <a href="docs/runbooks/spi-slave-race.html">Spi Slave Race</a></td>
 </tr>
 <tr>
 <td><code>ZBUS_CHAN_DECLARE</code> in .h file causes linker error &ldquo;multiple definition of imu_chan&rdquo;</td>
