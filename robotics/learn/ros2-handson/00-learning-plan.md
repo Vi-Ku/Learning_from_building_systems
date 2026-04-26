@@ -1,22 +1,18 @@
 # ROS2 Hands-On Exercises — Learning Plan
 
-## For
-
-Engineer who reads ROS2 logs and bags daily but has not yet built the muscle memory.
-
-## Goal
-
-Write, debug, and tune any ROS 2 node from scratch, and understand TF2 plus the high-level Nav2 architecture.
+**For:** Engineer who reads ROS2 logs/bags daily but hasn't built the muscle memory  
+**Goal:** Write, debug, and tune any ROS2 node from scratch; understand TF2 and Nav2 architecture
 
 ---
 
 ## Why This Track Exists
 
-You have 1524 lines of ROS 2 theory in `zephyr/study-notes/05-jetson-ros2.md`.
+You have 1524 lines of ROS2 theory in `zephyr/study-notes/05-jetson-ros2.md`.
 You debug Nav2, TF lookups, and QoS issues in production every week.
-But theory without hands-on exercises does not build the "just know it" reflex.
+But theory without hands-on exercises doesn't build the "just know it" reflex.
 
-**Goal:** After 3 weeks, you can write a working ROS 2 node, diagnose TF failures, and read a Nav2 behavior tree without looking anything up.
+**Goal:** After 3 weeks, you can write a working ROS2 node, diagnose TF failures, and
+read a Nav2 behaviour tree without looking anything up.
 
 ---
 
@@ -26,33 +22,34 @@ But theory without hands-on exercises does not build the "just know it" reflex.
 
 - Nodes, publishers, subscribers, timers
 - Services (sync) vs Actions (async with feedback)
-- Lifecycle nodes and why an AMR uses them
-- QoS profiles: reliability, durability, history, and when `BEST_EFFORT` drops frames
+- Lifecycle nodes — why OKS uses them
+- QoS profiles: reliability, durability, history — when BEST_EFFORT drops frames
 
 **Exercises:** `exercises/01-pub-sub-timer.md`, `exercises/03-action-server.md`
 
 ### Week 2: TF2 + Time + QoS (3 hrs)
 
 - Transform tree: `map → odom → base_link → sensor_frame`
-- `lookupTransform()` with timeout and why it throws
+- `lookupTransform()` with timeout — why it throws
 - Latency and time sync: `use_sim_time`, stamp tolerance
-- QoS mismatch and the silent subscription failure
+- QoS mismatch: the silent subscription failure
 
 **Exercises:** `exercises/02-tf2-broadcaster.md`
 
 ### Week 3: Nav2 Architecture (4 hrs)
 
-- BehaviorTree XML: Navigate, ComputePath, FollowPath, Recovery
+- BehaviourTree XML: Navigate, ComputePath, FollowPath, Recovery
 - Costmaps: global vs local, inflation radius, lethal obstacles
-- Controller plugins: DWB and RPP, and what parameters map to robot tuning
+- Controller plugins: DWB, RPP — what parameters map to OKS tuning
+- Planner search models: Dijkstra vs A*, Dubins vs Reeds-Shepp, and when kinematics matter
+- Search-space intuition: why NavFn thinks in `(x, y)` but Smac thinks in `(x, y, θ)`
+- Hybrid-A* tuning: how `minimum_turning_radius` changes feasibility
+- Bellman-Ford intuition: why repeated relaxation works when greedy finalization fails
+- Robot-motion intuition: holonomic vs non-holonomic vs underactuated
 - How `robot_localization` feeds `odom` to Nav2
 
-**Exercises:** `exercises/04-nav2-diagnostics.md`
-
-**Deep-track next:** `nav2/index.html` — dedicated Nav2 mastery plan for AMR production depth.
+**Exercises:** `exercises/04-nav2-diagnostics.md`, `exercises/05-search-costs-and-motion-models.md`, `exercises/06-hybrid-a-star-and-turning-radius.md`, `exercises/07-bellman-ford-dijkstra-a-star-interview-traps.md`, `exercises/08-holonomic-non-holonomic-underactuated-interview-traps.md`
 
 ---
 
-## Status
-
-🟢 Content complete — 3 lessons + 4 exercises.
+## Status: Content complete — 5 lessons + 8 exercises

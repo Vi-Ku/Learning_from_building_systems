@@ -41,6 +41,16 @@ def html_page(title, body_html, back_href, back_label, accent_class="blue"):
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{esc(title)} - Learning From Building Systems</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        window.MathJax = {{
+            tex: {{
+                inlineMath: [['$', '$'], ['\\\\(', '\\\\)']],
+                displayMath: [['$$', '$$'], ['\\\\[', '\\\\]']]
+            }}
+        }};
+    </script>
+    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body {{ font-family: 'Inter', sans-serif; }}
@@ -85,6 +95,8 @@ def html_page(title, body_html, back_href, back_label, accent_class="blue"):
         .md-content a {{ color: #2563eb; text-decoration: underline; }}
         .md-content a:hover {{ color: #1d4ed8; }}
         .md-content img {{ max-width: 100%; border-radius: 0.5rem; margin: 1rem 0; }}
+        .md-content .mermaid {{ margin: 1.5rem 0; overflow-x: auto; }}
+        .md-content .math-display {{ margin: 1.5rem 0; overflow-x: auto; }}
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
@@ -101,6 +113,9 @@ def html_page(title, body_html, back_href, back_label, accent_class="blue"):
             <p class="text-gray-500">Robotics Learning Resources</p>
         </footer>
     </div>
+    <script>
+        mermaid.initialize({{ startOnLoad: true }});
+    </script>
 </body>
 </html>"""
 
@@ -259,9 +274,39 @@ def normalize_markdown_navigation_refs(md_text):
     return "\n".join(normalized_lines)
 
 
+def preprocess_markdown(md_text):
+    """Expand markdown features the plain renderer doesn't handle well."""
+    display_math_pattern = re.compile(r"^\$\$\s*\n(.*?)\n\$\$\s*$", re.MULTILINE | re.DOTALL)
+    mermaid_pattern = re.compile(r"```mermaid\n(.*?)```", re.DOTALL)
+
+    def display_math_replacer(match):
+        expression = match.group(1).strip()
+        return f'\n<div class="math-display">\n$$\n{expression}\n$$\n</div>\n'
+
+    def mermaid_replacer(match):
+        diagram = match.group(1).strip()
+        return f'\n<div class="mermaid">\n{diagram}\n</div>\n'
+
+    md_text = display_math_pattern.sub(display_math_replacer, md_text)
+    return mermaid_pattern.sub(mermaid_replacer, md_text)
+
+
+def rewrite_markdown_links(body_html):
+    """Rewrite internal markdown links to generated HTML paths."""
+    href_pattern = re.compile(r'href="(?![a-z]+://|//|#)([^"]+?)\.md(#.*?)?"', re.IGNORECASE)
+
+    def href_replacer(match):
+        target = match.group(1)
+        fragment = match.group(2) or ""
+        return f'href="{target}.html{fragment}"'
+
+    return href_pattern.sub(href_replacer, body_html)
+
+
 def convert_md_to_html(md_path, out_path, back_href, back_label, accent="blue"):
     """Convert a single markdown file to a styled HTML page."""
     md_text = md_path.read_text(encoding="utf-8")
+    md_text = preprocess_markdown(md_text)
     title = extract_title(md_text)
     md_text = normalize_markdown_navigation_refs(md_text)
 
@@ -272,6 +317,7 @@ def convert_md_to_html(md_path, out_path, back_href, back_label, accent="blue"):
         "codehilite": {"css_class": "highlight", "guess_lang": False},
     })
     body = md_ext.convert(md_text)
+    body = rewrite_markdown_links(body)
 
     html = html_page(title, body, back_href, back_label, accent)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -630,6 +676,15 @@ def build_ros2_handson():
         out = section / (md.stem + ".html")
         convert_md_to_html(md, out, "index.html", "Back to ROS 2", accent)
         cards.append(card_html(md.stem + ".html", title, "", accent))
+
+    exercises_dir = section / "exercises"
+    if exercises_dir.exists():
+        for md in sorted(exercises_dir.glob("*.md")):
+            md_text = md.read_text(encoding="utf-8")
+            title = extract_title(md_text)
+            out = exercises_dir / (md.stem + ".html")
+            convert_md_to_html(md, out, "../index.html", "Back to ROS 2 Hands-on", accent)
+            cards.append(card_html(f"exercises/{md.stem}.html", f"Exercise: {title}", "", accent))
 
     idx = index_page(
         "ROS 2 Hands-On",
